@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-
-// Simple in-memory user storage for MVP
-// In production, replace with proper database
-const users = new Map<string, { name: string; email: string; password: string }>();
+import { users } from "../_store";
 
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json();
 
-    // Validate input
     if (!email || !password) {
       return NextResponse.json(
         { error: "Email and password are required" },
@@ -16,9 +12,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user exists (in production, query database)
     const user = users.get(email);
-    
+
     if (!user || user.password !== password) {
       return NextResponse.json(
         { error: "Invalid email or password" },
@@ -26,10 +21,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate simple token (in production, use JWT)
-    const token = Buffer.from(`${email}:${Date.now()}`).toString("base64");
+    // ⚠️ still NOT secure, but fine for MVP
+    const token = crypto.randomUUID();
 
-    // Return user data and token
     return NextResponse.json({
       user: {
         name: user.name,
