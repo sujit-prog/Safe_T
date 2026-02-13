@@ -51,7 +51,9 @@ export default function QuickCheckMap({ onCheckComplete }: QuickCheckMapProps) {
           (position) => {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
-            map.setView([lat, lng], 13);
+            if (mapInstanceRef.current) {
+  mapInstanceRef.current.setView([lat, lng], 13);
+}
           },
           () => {
             // Silently fail for quick check

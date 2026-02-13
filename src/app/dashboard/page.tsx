@@ -1,434 +1,307 @@
-'use client';
+"use client";
 
-type PageProps = {
-  params: Promise<Record<string, string>>;
-};
+import React, { useState } from "react";
+import { 
+  ShieldCheck, 
+  MapPin, 
+  History, 
+  TrendingUp, 
+  User, 
+  Settings, 
+  LogOut, 
+  Bell, 
+  Search,
+  ChevronRight,
+  Activity,
+  AlertTriangle,
+  Heart,
+  Calendar
+} from "lucide-react";
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
-import Link from 'next/link';
-import type { MapViewProps, SafetyResult } from '../../types';
-
-const Map = dynamic<MapViewProps>(() => import('../components/map/MapView'), {
-  ssr: false,
-  loading: () => (
-    <div className="flex items-center justify-center h-full bg-gray-100">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-gray-600">Loading map...</p>
-      </div>
-    </div>
-  )
-});
-
-interface SearchHistory {
+/**
+ * TYPE DEFINITIONS
+ */
+interface CheckHistoryItem {
   id: string;
-  location: {
-    lat: number;
-    lng: number;
-    address: string;
-  };
-  safety: {
-    overallSafety: number;
-    crimeRate: number;
-    accidentRate: number;
-    riskLevel: string;
-  };
-  timestamp: string;
-  saved: boolean;
+  location: string;
+  date: string;
+  score: number;
+  status: "Safe" | "Caution" | "High Risk";
 }
 
-export default function HistoryPage({ params }: PageProps){
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const isWelcome = searchParams.get('welcome') === 'true';
+interface SafetyTrend {
+  day: string;
+  score: number;
+}
 
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
-  const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [address, setAddress] = useState('');
-  const [result, setResult] = useState<SafetyResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<SearchHistory[]>([]);
-  const [activeTab, setActiveTab] = useState<'map' | 'history' | 'saved'>('map');
-  const [showWelcome, setShowWelcome] = useState(isWelcome);
+interface PageConfig {
+  backgroundImage: string;
+  backgroundOverlayOpacity: string;
+  accentTint: string;
+}
 
-  useEffect(() => {
-    // Check authentication
-    const userData = localStorage.getItem('safet_user');
-    if (!userData) {
-      router.push('/login');
-      return;
-    }
-    setUser(JSON.parse(userData));
+const PAGE_CONFIG: PageConfig = {
+  backgroundImage: "https://images.unsplash.com/photo-1600585154340-be6199f7e009?auto=format&fit=crop&q=80&w=2670", 
+  backgroundOverlayOpacity: "bg-black/40", 
+  accentTint: "bg-green-900/10"
+};
 
-    // Load search history
-    const savedHistory = localStorage.getItem('safet_history');
-    if (savedHistory) {
-      setHistory(JSON.parse(savedHistory));
-    }
-  }, [router]);
+/**
+ * Main Dashboard Component
+ * Renamed to App for Canvas Preview compatibility
+ */
+export default function App() {
+  const [userName] = useState("Johnathan");
+  const [currentLocation] = useState("Oakwood District, WA");
+  
+  // Mock Data for the Dashboard
+  const history: CheckHistoryItem[] = [
+    { id: "1", location: "Downtown Central", date: "Oct 24, 2023", score: 88, status: "Safe" },
+    { id: "2", location: "East Riverside", date: "Oct 22, 2023", score: 42, status: "High Risk" },
+    { id: "3", location: "North Hills Shopping", date: "Oct 20, 2023", score: 75, status: "Caution" },
+    { id: "4", location: "St. Mary's Park", date: "Oct 18, 2023", score: 92, status: "Safe" },
+  ];
 
-  const handleLocationChange = (lat: number, lng: number, addr: string) => {
-    setCurrentLocation({ lat, lng });
-    setAddress(addr);
-  };
-
-  const checkSafety = async (lat?: number, lng?: number, fromHistory?: boolean) => {
-    const checkLat = lat || currentLocation?.lat;
-    const checkLng = lng || currentLocation?.lng;
-
-    if (!checkLat || !checkLng) return;
-
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/safety?lat=${checkLat}&lng=${checkLng}&address=${encodeURIComponent(address)}`);
-      const data = await response.json();
-      setResult(data);
-
-      // Add to history (only if not from history click)
-      if (!fromHistory) {
-        const newHistoryItem: SearchHistory = {
-          id: Date.now().toString(),
-          location: data.location,
-          safety: data.safety,
-          timestamp: data.timestamp,
-          saved: false
-        };
-
-        const updatedHistory = [newHistoryItem, ...history].slice(0, 50); // Keep last 50
-        setHistory(updatedHistory);
-        localStorage.setItem('safet_history', JSON.stringify(updatedHistory));
-      }
-    } catch (error) {
-      console.error('Safety check failed:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const toggleSaveLocation = (id: string) => {
-    const updatedHistory = history.map(item =>
-      item.id === id ? { ...item, saved: !item.saved } : item
-    );
-    setHistory(updatedHistory);
-    localStorage.setItem('safet_history', JSON.stringify(updatedHistory));
-  };
-
-  const deleteHistoryItem = (id: string) => {
-    const updatedHistory = history.filter(item => item.id !== id);
-    setHistory(updatedHistory);
-    localStorage.setItem('safet_history', JSON.stringify(updatedHistory));
-  };
-
-  const loadHistoryLocation = (item: SearchHistory) => {
-    setCurrentLocation({ lat: item.location.lat, lng: item.location.lng });
-    setAddress(item.location.address);
-    setResult(null); // Clear result; user can press Check Safety to re-analyze
-    setActiveTab('map');
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('safet_user');
-    router.push('/');
-  };
-
-  const getRiskColor = (level: string) => {
-    switch (level) {
-      case 'LOW': return 'text-green-600 bg-green-100';
-      case 'MEDIUM': return 'text-yellow-600 bg-yellow-100';
-      case 'HIGH': return 'text-orange-600 bg-orange-100';
-      case 'CRITICAL': return 'text-red-600 bg-red-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
-  const savedLocations = history.filter(item => item.saved);
-
-  if (!user) return null;
+  const trends: SafetyTrend[] = [
+    { day: "Mon", score: 85 },
+    { day: "Tue", score: 82 },
+    { day: "Wed", score: 88 },
+    { day: "Thu", score: 91 },
+    { day: "Fri", score: 89 },
+  ];
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      {/* Welcome Modal */}
-      {showWelcome && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
-            <div className="text-center">
-              <div className="text-6xl mb-4">🎉</div>
-              <h2 className="text-3xl font-bold mb-2">Welcome to SafeT!</h2>
-              <p className="text-gray-600 mb-6">
-                Your account has been created successfully. Start exploring safety information for any location!
+    <div className="relative min-h-screen bg-[#FBFCFB] font-sans text-stone-800 overflow-x-hidden">
+      {/* Dynamic Background Image Layer (Blurred for Dashboard Content) */}
+      <div 
+        className="fixed inset-0 bg-cover bg-center blur-2xl opacity-40 scale-110 pointer-events-none" 
+        style={{ backgroundImage: `url(${PAGE_CONFIG.backgroundImage})` }}
+      />
+      
+      {/* Main Layout Wrapper */}
+      <div className="relative z-10 flex flex-col lg:flex-row min-h-screen">
+        
+        {/* Sidebar Navigation */}
+        <aside className="w-full lg:w-72 bg-white/70 backdrop-blur-xl border-r border-green-50 p-8 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-12">
+              <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center shadow-lg shadow-green-100">
+                <ShieldCheck className="w-6 h-6 text-white" />
+              </div>
+              <span className="text-xl font-bold tracking-tight text-green-900">SafeT</span>
+            </div>
+
+            <nav className="space-y-2">
+              <button className="w-full flex items-center gap-4 px-6 py-4 bg-green-500 text-white rounded-2xl font-bold transition-all shadow-lg shadow-green-100">
+                <Activity className="w-5 h-5" />
+                Overview
+              </button>
+              <button className="w-full flex items-center gap-4 px-6 py-4 text-stone-400 hover:text-green-600 hover:bg-green-50 rounded-2xl font-bold transition-all">
+                <MapPin className="w-5 h-5" />
+                Live Map
+              </button>
+              <button className="w-full flex items-center gap-4 px-6 py-4 text-stone-400 hover:text-green-600 hover:bg-green-50 rounded-2xl font-bold transition-all">
+                <History className="w-5 h-5" />
+                Check History
+              </button>
+              <button className="w-full flex items-center gap-4 px-6 py-4 text-stone-400 hover:text-green-600 hover:bg-green-50 rounded-2xl font-bold transition-all">
+                <Settings className="w-5 h-5" />
+                Preferences
+              </button>
+            </nav>
+          </div>
+
+          <button className="flex items-center gap-4 px-6 py-4 text-stone-400 hover:text-red-500 rounded-2xl font-bold transition-all">
+            <LogOut className="w-5 h-5" />
+            Sign Out
+          </button>
+        </aside>
+
+        {/* Main Content Area */}
+        <main className="flex-1 p-6 lg:p-12 overflow-y-auto">
+          {/* Header */}
+          <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-extrabold text-stone-900 tracking-tight">
+                Welcome home, <span className="text-green-500 italic font-serif font-normal">{userName}</span>
+              </h1>
+              <p className="text-stone-400 font-medium mt-1 flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-green-500" />
+                Currently in {currentLocation}
               </p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-left">
-                <h3 className="font-semibold text-blue-900 mb-2">Quick Tips:</h3>
-                <ul className="text-sm text-blue-800 space-y-1">
-                  <li>✓ Click anywhere on the map to check safety</li>
-                  <li>✓ Use "My Location" for quick GPS check</li>
-                  <li>✓ Save important locations for later</li>
-                  <li>✓ View your search history anytime</li>
-                </ul>
-              </div>
-              <button
-                onClick={() => setShowWelcome(false)}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-full font-semibold hover:shadow-lg transition"
-              >
-                Get Started
-              </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link href="/" className="flex items-center gap-2">
-                <span className="text-2xl">🛡️</span>
-                <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  SafeT
-                </span>
-              </Link>
-              <span className="text-gray-300">|</span>
-              <span className="text-gray-600">Dashboard</span>
+              <button className="p-4 bg-white border border-green-50 rounded-2xl text-stone-400 hover:text-green-500 transition-all shadow-sm relative">
+                <Bell className="w-5 h-5" />
+                <span className="absolute top-3 right-3 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+              </button>
+              <div className="flex items-center gap-4 bg-white p-2 pr-6 border border-green-50 rounded-2xl shadow-sm">
+                <div className="w-10 h-10 bg-stone-100 rounded-xl overflow-hidden flex items-center justify-center">
+                  <User className="w-6 h-6 text-stone-300" />
+                </div>
+                <div className="text-left">
+                  <p className="text-xs font-black text-stone-400 uppercase tracking-widest">Resident</p>
+                  <p className="text-sm font-bold text-stone-900">Member Plus</p>
+                </div>
+              </div>
             </div>
+          </header>
+
+          {/* Top Grid: Trends & Current Stats */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 mb-12">
             
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
-                  {user.name.charAt(0) || user.email.charAt(0).toUpperCase()}
+            {/* Main Safety Score Card */}
+            <div className="xl:col-span-2 bg-white/80 backdrop-blur-md rounded-[3rem] p-10 border border-green-50 shadow-xl shadow-green-900/5 relative overflow-hidden group">
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-8">
+                  <h2 className="text-2xl font-bold text-stone-900">Safety Pulse</h2>
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-600 rounded-full text-[10px] font-black uppercase tracking-widest">
+                    <TrendingUp className="w-3 h-3" />
+                    Improving +2%
+                  </div>
                 </div>
-                <div className="hidden md:block">
-                  <div className="text-sm font-semibold">{user.name || user.email}</div>
-                  <div className="text-xs text-gray-500">{user.email}</div>
+                
+                <div className="flex flex-col md:flex-row items-end gap-12">
+                  <div className="flex-1">
+                    <div className="flex items-baseline gap-2 mb-2">
+                      <span className="text-7xl font-black text-stone-900">92</span>
+                      <span className="text-2xl font-bold text-green-500">/ 100</span>
+                    </div>
+                    <p className="text-stone-400 font-medium max-w-xs">
+                      Oakwood District remains a <span className="text-green-600 font-bold">Secure Zone</span>. Lighting and community patrol are at peak efficiency.
+                    </p>
+                  </div>
+                  
+                  {/* Mock Chart Visualization */}
+                  <div className="flex items-end gap-3 h-32 w-full md:w-auto pb-2">
+                    {trends.map((t, i) => (
+                      <div key={i} className="flex flex-col items-center gap-2">
+                        <div 
+                          className="w-10 bg-green-500/10 hover:bg-green-500/20 rounded-xl transition-all cursor-help relative group/bar" 
+                          style={{ height: `${t.score}%` }}
+                        >
+                          <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-stone-900 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover/bar:opacity-100 transition-opacity whitespace-nowrap">
+                            Score: {t.score}
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-black text-stone-300 uppercase tracking-tighter">{t.day}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <button
-                onClick={handleLogout}
-                className="text-gray-600 hover:text-red-600 font-medium transition"
-              >
-                Logout
+            </div>
+
+            {/* Quick Actions / Local Risk */}
+            <div className="bg-emerald-900 rounded-[3rem] p-10 text-white shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-green-400/10 blur-3xl rounded-full"></div>
+              <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-green-400" />
+                Recent Alerts
+              </h2>
+              <div className="space-y-6 relative z-10">
+                <div className="flex gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                    <Search className="w-5 h-5 text-green-300" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold">Patrol Update</p>
+                    <p className="text-xs text-green-100/60">Community patrol increased in South Oakwood.</p>
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                    <Heart className="w-5 h-5 text-green-300" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold">Peace of Mind</p>
+                    <p className="text-xs text-green-100/60">No high-risk events reported in 7 days.</p>
+                  </div>
+                </div>
+              </div>
+              <button className="w-full mt-10 py-4 bg-white text-emerald-900 rounded-2xl font-bold text-sm hover:bg-green-50 transition-all">
+                Full Neighborhood Report
               </button>
             </div>
-          </div>
-        </div>
-      </header>
 
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
-        <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-          {/* Tabs */}
-          <div className="flex border-b border-gray-200">
-            <button
-              onClick={() => setActiveTab('map')}
-              className={`flex-1 py-3 px-4 font-semibold transition ${
-                activeTab === 'map'
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              🗺️ Map
-            </button>
-            <button
-              onClick={() => setActiveTab('history')}
-              className={`flex-1 py-3 px-4 font-semibold transition ${
-                activeTab === 'history'
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              📜 History ({history.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('saved')}
-              className={`flex-1 py-3 px-4 font-semibold transition ${
-                activeTab === 'saved'
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              ⭐ Saved ({savedLocations.length})
-            </button>
           </div>
 
-          {/* Tab Content */}
-          <div className="flex-1 overflow-y-auto p-4">
-            {activeTab === 'map' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Selected Location
-                  </label>
-                  <input
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Click on map to select"
-                    className="w-full border border-gray-300 px-3 py-2 rounded-lg"
-                    readOnly
-                  />
-                </div>
-
-                <button
-                  onClick={() => checkSafety()}
-                  disabled={loading || !currentLocation}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition disabled:opacity-50"
-                >
-                  {loading ? 'Checking...' : 'Check Safety'}
-                </button>
-
-                {result && (
-                  <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                    <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full font-bold ${getRiskColor(result.safety.riskLevel)}`}>
-                      {result.safety.riskLevel} RISK
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Overall Safety</span>
-                        <span className="font-semibold">{result.safety.overallSafety}%</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Crime Rate</span>
-                        <span className="font-semibold">{result.safety.crimeRate}%</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Accident Rate</span>
-                        <span className="font-semibold">{result.safety.accidentRate}%</span>
-                      </div>
-                    </div>
-
-                    <div className="pt-3 border-t border-gray-200">
-                      <h4 className="font-semibold text-sm mb-2">Recommendations:</h4>
-                      <ul className="text-sm space-y-1">
-                        {result.recommendations?.map((rec: string, idx: number) => (
-                          <li key={idx} className="text-gray-600">• {rec}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                )}
+          {/* Bottom Table: Recent Check History */}
+          <div className="bg-white/70 backdrop-blur-md rounded-[3rem] p-10 border border-green-50 shadow-xl shadow-green-900/5">
+            <div className="flex items-center justify-between mb-10">
+              <div>
+                <h2 className="text-2xl font-bold text-stone-900 tracking-tight">Recent Check History</h2>
+                <p className="text-stone-400 text-sm font-medium">Your personalized activity across the community.</p>
               </div>
-            )}
+              <button className="text-xs font-black text-green-500 uppercase tracking-widest hover:text-green-600 transition-colors">
+                Export Data
+              </button>
+            </div>
 
-            {activeTab === 'history' && (
-              <div className="space-y-3">
-                {history.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <div className="text-4xl mb-2">📍</div>
-                    <p>No search history yet</p>
-                    <p className="text-sm">Start checking locations!</p>
-                  </div>
-                ) : (
-                  history.map(item => (
-                    <div key={item.id} className="bg-gray-50 rounded-lg p-3 hover:shadow-md transition">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <p className="font-semibold text-sm line-clamp-1">{item.location.address}</p>
-                          <p className="text-xs text-gray-500">
-                            {new Date(item.timestamp).toLocaleString()}
-                          </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="text-[10px] font-black text-stone-400 uppercase tracking-[0.2em] border-b border-stone-50">
+                    <th className="pb-6 pl-4">Location</th>
+                    <th className="pb-6">Date Checked</th>
+                    <th className="pb-6">Safety Score</th>
+                    <th className="pb-6 text-right pr-4">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-50">
+                  {history.map((item) => (
+                    <tr key={item.id} className="group hover:bg-green-50/50 transition-colors">
+                      <td className="py-6 pl-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-stone-50 rounded-xl flex items-center justify-center text-stone-400 group-hover:bg-white group-hover:text-green-500 transition-all">
+                            <MapPin className="w-5 h-5" />
+                          </div>
+                          <span className="font-bold text-stone-800">{item.location}</span>
                         </div>
-                        <div className={`px-2 py-1 rounded text-xs font-bold ${getRiskColor(item.safety.riskLevel)}`}>
-                          {item.safety.riskLevel}
+                      </td>
+                      <td className="py-6">
+                        <div className="flex items-center gap-2 text-stone-500 font-medium">
+                          <Calendar className="w-4 h-4" />
+                          {item.date}
                         </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => loadHistoryLocation(item)}
-                          className="flex-1 bg-blue-600 text-white py-1 rounded text-xs font-semibold hover:bg-blue-700"
-                        >
-                          View
+                      </td>
+                      <td className="py-6">
+                        <div className="flex items-center gap-4">
+                          <div className="flex-1 max-w-[100px] h-1.5 bg-stone-100 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full ${
+                                item.status === 'Safe' ? 'bg-green-500' : 
+                                item.status === 'Caution' ? 'bg-amber-400' : 'bg-red-400'
+                              }`} 
+                              style={{ width: `${item.score}%` }}
+                            ></div>
+                          </div>
+                          <span className={`text-xs font-black uppercase tracking-widest ${
+                                item.status === 'Safe' ? 'text-green-600' : 
+                                item.status === 'Caution' ? 'text-amber-600' : 'text-red-500'
+                          }`}>
+                            {item.status}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-6 text-right pr-4">
+                        <button className="p-2 text-stone-300 hover:text-green-500 transition-colors">
+                          <ChevronRight className="w-5 h-5" />
                         </button>
-                        <button
-                          onClick={() => toggleSaveLocation(item.id)}
-                          className={`px-3 py-1 rounded text-xs font-semibold ${
-                            item.saved ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-700'
-                          }`}
-                        >
-                          {item.saved ? '⭐' : '☆'}
-                        </button>
-                        <button
-                          onClick={() => deleteHistoryItem(item.id)}
-                          className="px-3 py-1 bg-red-100 text-red-600 rounded text-xs font-semibold hover:bg-red-200"
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {activeTab === 'saved' && (
-              <div className="space-y-3">
-                {savedLocations.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <div className="text-4xl mb-2">⭐</div>
-                    <p>No saved locations</p>
-                    <p className="text-sm">Save important places from history!</p>
-                  </div>
-                ) : (
-                  savedLocations.map(item => (
-                    <div key={item.id} className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-lg p-3 border border-yellow-200 hover:shadow-md transition">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <p className="font-semibold text-sm line-clamp-1">{item.location.address}</p>
-                          <p className="text-xs text-gray-500">
-                            Saved: {new Date(item.timestamp).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className={`px-2 py-1 rounded text-xs font-bold ${getRiskColor(item.safety.riskLevel)}`}>
-                          {item.safety.riskLevel}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 text-center mb-2">
-                        <div>
-                          <div className="text-xs text-gray-600">Safety</div>
-                          <div className="font-bold text-green-600">{item.safety.overallSafety}%</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-gray-600">Crime</div>
-                          <div className="font-bold text-red-600">{item.safety.crimeRate}%</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-gray-600">Accidents</div>
-                          <div className="font-bold text-orange-600">{item.safety.accidentRate}%</div>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => loadHistoryLocation(item)}
-                          className="flex-1 bg-blue-600 text-white py-1 rounded text-xs font-semibold hover:bg-blue-700"
-                        >
-                          View on Map
-                        </button>
-                        <button
-                          onClick={() => toggleSaveLocation(item.id)}
-                          className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-xs font-semibold hover:bg-gray-300"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-
-        {/* Map */}
-        <div className="flex-1">
-          <Map
-            onLocationChange={handleLocationChange}
-            emergencyCenters={result?.emergencyCenters}
-            userLocation={currentLocation}
-          />
-        </div>
+        </main>
       </div>
+
+      {/* Floating Support Button */}
+      <button className="fixed bottom-10 right-10 w-16 h-16 bg-green-500 text-white rounded-2xl shadow-2xl shadow-green-500/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50">
+        <Heart className="w-8 h-8 fill-current" />
+      </button>
     </div>
   );
 }

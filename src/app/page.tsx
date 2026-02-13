@@ -1,434 +1,306 @@
-'use client';
+"use client";
 
-type PageProps = {
-  params: Promise<Record<string, string>>;
-};
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+import type { QuickCheckMapProps, SafetyResult } from "@/types";
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
-import Link from 'next/link';
-import type { MapViewProps, SafetyResult } from '../types';
-
-const Map = dynamic<MapViewProps>(() => import('../app/components/map/MapView'),{
-  ssr: false,
-  loading: () => (
-    <div className="flex items-center justify-center h-full bg-gray-100">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-gray-600">Loading map...</p>
+const QuickCheckMap = dynamic<QuickCheckMapProps>(
+  () => import('./components/landing/QuickCheckMap'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center h-full bg-green-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
       </div>
-    </div>
-  )
-});
+    )
+  }
+);
 
-interface SearchHistory {
-  id: string;
-  location: {
-    lat: number;
-    lng: number;
-    address: string;
-  };
-  safety: {
-    overallSafety: number;
-    crimeRate: number;
-    accidentRate: number;
-    riskLevel: string;
-  };
-  timestamp: string;
-  saved: boolean;
-}
-
-export default function HistoryPage({ params }: PageProps){
+export default function LandingPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const isWelcome = searchParams.get('welcome') === 'true';
+  const [showQuickCheck, setShowQuickCheck] = useState(false);
+  const [quickCheckResult, setQuickCheckResult] = useState<SafetyResult | null>(null);
 
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
-  const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [address, setAddress] = useState('');
-  const [result, setResult] = useState<SafetyResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<SearchHistory[]>([]);
-  const [activeTab, setActiveTab] = useState<'map' | 'history' | 'saved'>('map');
-  const [showWelcome, setShowWelcome] = useState(isWelcome);
-
-  useEffect(() => {
-    // Check authentication
-    const userData = localStorage.getItem('safet_user');
-    if (!userData) {
-      router.push('/login');
-      return;
-    }
-    setUser(JSON.parse(userData));
-
-    // Load search history
-    const savedHistory = localStorage.getItem('safet_history');
-    if (savedHistory) {
-      setHistory(JSON.parse(savedHistory));
-    }
-  }, [router]);
-
-  const handleLocationChange = (lat: number, lng: number, addr: string) => {
-    setCurrentLocation({ lat, lng });
-    setAddress(addr);
+  const handleQuickCheck = (result: SafetyResult) => {
+    setQuickCheckResult(result);
   };
-
-  const checkSafety = async (lat?: number, lng?: number, fromHistory?: boolean) => {
-    const checkLat = lat || currentLocation?.lat;
-    const checkLng = lng || currentLocation?.lng;
-
-    if (!checkLat || !checkLng) return;
-
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/safety?lat=${checkLat}&lng=${checkLng}&address=${encodeURIComponent(address)}`);
-      const data = await response.json();
-      setResult(data);
-
-      // Add to history (only if not from history click)
-      if (!fromHistory) {
-        const newHistoryItem: SearchHistory = {
-          id: Date.now().toString(),
-          location: data.location,
-          safety: data.safety,
-          timestamp: data.timestamp,
-          saved: false
-        };
-
-        const updatedHistory = [newHistoryItem, ...history].slice(0, 50); // Keep last 50
-        setHistory(updatedHistory);
-        localStorage.setItem('safet_history', JSON.stringify(updatedHistory));
-      }
-    } catch (error) {
-      console.error('Safety check failed:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const toggleSaveLocation = (id: string) => {
-    const updatedHistory = history.map(item =>
-      item.id === id ? { ...item, saved: !item.saved } : item
-    );
-    setHistory(updatedHistory);
-    localStorage.setItem('safet_history', JSON.stringify(updatedHistory));
-  };
-
-  const deleteHistoryItem = (id: string) => {
-    const updatedHistory = history.filter(item => item.id !== id);
-    setHistory(updatedHistory);
-    localStorage.setItem('safet_history', JSON.stringify(updatedHistory));
-  };
-
-  const loadHistoryLocation = (item: SearchHistory) => {
-    setCurrentLocation({ lat: item.location.lat, lng: item.location.lng });
-    setAddress(item.location.address);
-    setResult(null); // Clear result; user can press Check Safety to re-analyze
-    setActiveTab('map');
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('safet_user');
-    router.push('/');
-  };
-
-  const getRiskColor = (level: string) => {
-    switch (level) {
-      case 'LOW': return 'text-green-600 bg-green-100';
-      case 'MEDIUM': return 'text-yellow-600 bg-yellow-100';
-      case 'HIGH': return 'text-orange-600 bg-orange-100';
-      case 'CRITICAL': return 'text-red-600 bg-red-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
-  const savedLocations = history.filter(item => item.saved);
-
-  if (!user) return null;
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      {/* Welcome Modal */}
-      {showWelcome && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
-            <div className="text-center">
-              <div className="text-6xl mb-4">🎉</div>
-              <h2 className="text-3xl font-bold mb-2">Welcome to SafeT!</h2>
-              <p className="text-gray-600 mb-6">
-                Your account has been created successfully. Start exploring safety information for any location!
-              </p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-left">
-                <h3 className="font-semibold text-blue-900 mb-2">Quick Tips:</h3>
-                <ul className="text-sm text-blue-800 space-y-1">
-                  <li>✓ Click anywhere on the map to check safety</li>
-                  <li>✓ Use "My Location" for quick GPS check</li>
-                  <li>✓ Save important locations for later</li>
-                  <li>✓ View your search history anytime</li>
-                </ul>
-              </div>
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-yellow-50 to-green-100">
+      {/* Simple Navigation */}
+      <nav className="bg-white/90 backdrop-blur-sm shadow-sm sticky top-0 z-50 border-b border-green-100">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-3xl">🛡️</span>
+              <h1 className="text-2xl font-bold text-green-800">
+                SafeT
+              </h1>
+            </div>
+            <div className="flex items-center gap-3">
               <button
-                onClick={() => setShowWelcome(false)}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-full font-semibold hover:shadow-lg transition"
+                onClick={() => router.push('/login')}
+                className="text-green-700 hover:text-green-900 font-medium transition px-4 py-2"
               >
-                Get Started
+                Log In
+              </button>
+              <button
+                onClick={() => router.push('/signup')}
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-full font-semibold shadow-md hover:shadow-lg transition"
+              >
+                Sign Up Free
               </button>
             </div>
           </div>
         </div>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="container mx-auto px-4 py-16 md:py-24">
+        <div className="max-w-3xl mx-auto text-center">
+          <div className="inline-block bg-green-100 text-green-800 px-4 py-2 rounded-full text-sm font-semibold mb-6">
+            ✨ Free. Simple. Safe.
+          </div>
+          
+          <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight text-gray-900">
+            Stay Safe,
+            <br />
+            <span className="text-green-700">
+              Wherever You Go
+            </span>
+          </h1>
+          
+          <p className="text-xl text-gray-700 mb-8 max-w-2xl mx-auto leading-relaxed">
+            Check any location's safety in seconds. Find nearby help. 
+            Plan safer routes. All free, forever.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
+            <button
+              onClick={() => setShowQuickCheck(!showQuickCheck)}
+              className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-full font-bold text-lg shadow-lg hover:shadow-xl transition transform hover:scale-105"
+            >
+              {showQuickCheck ? '✓ Quick Check Active' : '🎯 Try Quick Check'}
+            </button>
+            <button
+              onClick={() => router.push('/signup')}
+              className="bg-white hover:bg-green-50 text-green-700 px-8 py-4 rounded-full font-bold text-lg border-2 border-green-600 transition"
+            >
+              Create Free Account
+            </button>
+          </div>
+
+          <div className="flex items-center justify-center gap-6 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <span className="text-green-600">✓</span>
+              <span>No credit card</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-green-600">✓</span>
+              <span>Always free</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-green-600">✓</span>
+              <span>No limits</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Quick Check Section */}
+      {showQuickCheck && (
+        <section className="container mx-auto px-4 pb-16">
+          <div className="max-w-5xl mx-auto">
+            <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border-2 border-green-200">
+              <div className="bg-gradient-to-r from-green-600 to-green-500 text-white px-6 py-4">
+                <h2 className="text-2xl font-bold">🎯 Quick Safety Check</h2>
+                <p className="text-green-50 mt-1">Click anywhere on the map to check location safety</p>
+              </div>
+              
+              <div className="h-[500px]">
+                <QuickCheckMap onCheckComplete={handleQuickCheck} />
+              </div>
+
+              {quickCheckResult && (
+                <div className="p-6 bg-green-50 border-t-2 border-green-100">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-green-100">
+                      <div className="text-sm text-gray-600 mb-1">Overall Safety</div>
+                      <div className="text-3xl font-bold text-green-700">
+                        {quickCheckResult.safety.overallSafety}%
+                      </div>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-green-100">
+                      <div className="text-sm text-gray-600 mb-1">Risk Level</div>
+                      <div className="text-2xl font-bold text-green-700">
+                        {quickCheckResult.safety.riskLevel}
+                      </div>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-green-100">
+                      <div className="text-sm text-gray-600 mb-1">Nearby Help</div>
+                      <div className="text-3xl font-bold text-green-700">
+                        {quickCheckResult.emergencyCenters.length}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="text-center bg-white rounded-xl p-4 border border-green-100">
+                    <p className="text-gray-700 mb-3">
+                      Want to save this check and track your location history?
+                    </p>
+                    <button
+                      onClick={() => router.push('/signup')}
+                      className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-full font-bold hover:shadow-lg transition"
+                    >
+                      Create Free Account
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
       )}
 
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href="/" className="flex items-center gap-2">
-                <span className="text-2xl">🛡️</span>
-                <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  SafeT
-                </span>
-              </Link>
-              <span className="text-gray-300">|</span>
-              <span className="text-gray-600">Dashboard</span>
+      {/* Simple Features */}
+      <section className="container mx-auto px-4 py-16">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 text-gray-900">
+            Everything You Need to Stay Safe
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-white p-6 rounded-2xl shadow-md hover:shadow-lg transition border border-green-100">
+              <div className="text-5xl mb-4">🗺️</div>
+              <h3 className="text-xl font-bold mb-2 text-gray-900">Check Any Location</h3>
+              <p className="text-gray-600">
+                Instant safety scores for any place. Crime rates, accident data, and more.
+              </p>
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl shadow-md hover:shadow-lg transition border border-green-100">
+              <div className="text-5xl mb-4">🚨</div>
+              <h3 className="text-xl font-bold mb-2 text-gray-900">Find Help Fast</h3>
+              <p className="text-gray-600">
+                Locate nearest hospitals, police stations, and fire departments instantly.
+              </p>
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl shadow-md hover:shadow-lg transition border border-green-100">
+              <div className="text-5xl mb-4">📍</div>
+              <h3 className="text-xl font-bold mb-2 text-gray-900">Save Your Checks</h3>
+              <p className="text-gray-600">
+                Track your location history and save important places for quick access.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Why SafeT */}
+      <section className="bg-white py-16 border-y-2 border-green-100">
+        <div className="container mx-auto px-4">
+          <div className="max-w-3xl mx-auto text-center">
+            <h2 className="text-3xl md:text-4xl font-bold mb-8 text-gray-900">Why Choose SafeT?</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+              <div className="flex gap-3">
+                <div className="text-3xl">🆓</div>
+                <div>
+                  <h3 className="text-lg font-bold mb-1 text-gray-900">Always Free</h3>
+                  <p className="text-gray-600 text-sm">
+                    No subscriptions, no hidden costs. Free forever for everyone.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="text-3xl">🔒</div>
+                <div>
+                  <h3 className="text-lg font-bold mb-1 text-gray-900">Your Privacy</h3>
+                  <p className="text-gray-600 text-sm">
+                    We don't track or sell your data. Your safety info stays yours.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="text-3xl">⚡</div>
+                <div>
+                  <h3 className="text-lg font-bold mb-1 text-gray-900">Real-Time Data</h3>
+                  <p className="text-gray-600 text-sm">
+                    Get current safety information based on the latest data.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="text-3xl">📱</div>
+                <div>
+                  <h3 className="text-lg font-bold mb-1 text-gray-900">Works Anywhere</h3>
+                  <p className="text-gray-600 text-sm">
+                    Use on any device - phone, tablet, or computer.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Simple CTA */}
+      <section className="container mx-auto px-4 py-16">
+        <div className="max-w-3xl mx-auto bg-gradient-to-r from-green-600 to-green-500 rounded-3xl p-12 text-center text-white shadow-2xl">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to Feel Safer?</h2>
+          <p className="text-xl text-green-50 mb-8">
+            Join thousands who trust SafeT for their safety needs
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={() => router.push('/signup')}
+              className="bg-white text-green-700 px-8 py-4 rounded-full font-bold text-lg hover:shadow-xl transition transform hover:scale-105"
+            >
+              Get Started Free
+            </button>
+            <button
+              onClick={() => {
+                setShowQuickCheck(true);
+                window.scrollTo({ top: 400, behavior: 'smooth' });
+              }}
+              className="bg-green-700 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-green-800 transition"
+            >
+              Try Quick Check
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Simple Footer */}
+      <footer className="bg-gray-900 text-gray-400 py-12 border-t-4 border-green-600">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8">
+              <div className="flex items-center gap-2">
+                <span className="text-3xl">🛡️</span>
+                <h3 className="text-white text-xl font-bold">SafeT</h3>
+              </div>
+              
+              <div className="flex gap-6 text-sm">
+                <a href="#" className="hover:text-white transition">About</a>
+                <a href="#" className="hover:text-white transition">Privacy</a>
+                <a href="#" className="hover:text-white transition">Terms</a>
+                <a href="#" className="hover:text-white transition">Contact</a>
+              </div>
             </div>
             
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
-                  {user.name.charAt(0) || user.email.charAt(0).toUpperCase()}
-                </div>
-                <div className="hidden md:block">
-                  <div className="text-sm font-semibold">{user.name || user.email}</div>
-                  <div className="text-xs text-gray-500">{user.email}</div>
-                </div>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="text-gray-600 hover:text-red-600 font-medium transition"
-              >
-                Logout
-              </button>
+            <div className="text-center text-sm border-t border-gray-800 pt-6">
+              <p>© 2026 SafeT. All rights reserved. Built with care for your safety.</p>
+              <p className="text-gray-500 mt-2">Powered by OpenStreetMap</p>
             </div>
           </div>
         </div>
-      </header>
-
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
-        <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-          {/* Tabs */}
-          <div className="flex border-b border-gray-200">
-            <button
-              onClick={() => setActiveTab('map')}
-              className={`flex-1 py-3 px-4 font-semibold transition ${
-                activeTab === 'map'
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              🗺️ Map
-            </button>
-            <button
-              onClick={() => setActiveTab('history')}
-              className={`flex-1 py-3 px-4 font-semibold transition ${
-                activeTab === 'history'
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              📜 History ({history.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('saved')}
-              className={`flex-1 py-3 px-4 font-semibold transition ${
-                activeTab === 'saved'
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              ⭐ Saved ({savedLocations.length})
-            </button>
-          </div>
-
-          {/* Tab Content */}
-          <div className="flex-1 overflow-y-auto p-4">
-            {activeTab === 'map' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Selected Location
-                  </label>
-                  <input
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Click on map to select"
-                    className="w-full border border-gray-300 px-3 py-2 rounded-lg"
-                    readOnly
-                  />
-                </div>
-
-                <button
-                  onClick={() => checkSafety()}
-                  disabled={loading || !currentLocation}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition disabled:opacity-50"
-                >
-                  {loading ? 'Checking...' : 'Check Safety'}
-                </button>
-
-                {result && (
-                  <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                    <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full font-bold ${getRiskColor(result.safety.riskLevel)}`}>
-                      {result.safety.riskLevel} RISK
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Overall Safety</span>
-                        <span className="font-semibold">{result.safety.overallSafety}%</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Crime Rate</span>
-                        <span className="font-semibold">{result.safety.crimeRate}%</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Accident Rate</span>
-                        <span className="font-semibold">{result.safety.accidentRate}%</span>
-                      </div>
-                    </div>
-
-                    <div className="pt-3 border-t border-gray-200">
-                      <h4 className="font-semibold text-sm mb-2">Recommendations:</h4>
-                      <ul className="text-sm space-y-1">
-                        {result.recommendations?.map((rec: string, idx: number) => (
-                          <li key={idx} className="text-gray-600">• {rec}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'history' && (
-              <div className="space-y-3">
-                {history.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <div className="text-4xl mb-2">📍</div>
-                    <p>No search history yet</p>
-                    <p className="text-sm">Start checking locations!</p>
-                  </div>
-                ) : (
-                  history.map(item => (
-                    <div key={item.id} className="bg-gray-50 rounded-lg p-3 hover:shadow-md transition">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <p className="font-semibold text-sm line-clamp-1">{item.location.address}</p>
-                          <p className="text-xs text-gray-500">
-                            {new Date(item.timestamp).toLocaleString()}
-                          </p>
-                        </div>
-                        <div className={`px-2 py-1 rounded text-xs font-bold ${getRiskColor(item.safety.riskLevel)}`}>
-                          {item.safety.riskLevel}
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => loadHistoryLocation(item)}
-                          className="flex-1 bg-blue-600 text-white py-1 rounded text-xs font-semibold hover:bg-blue-700"
-                        >
-                          View
-                        </button>
-                        <button
-                          onClick={() => toggleSaveLocation(item.id)}
-                          className={`px-3 py-1 rounded text-xs font-semibold ${
-                            item.saved ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-700'
-                          }`}
-                        >
-                          {item.saved ? '⭐' : '☆'}
-                        </button>
-                        <button
-                          onClick={() => deleteHistoryItem(item.id)}
-                          className="px-3 py-1 bg-red-100 text-red-600 rounded text-xs font-semibold hover:bg-red-200"
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {activeTab === 'saved' && (
-              <div className="space-y-3">
-                {savedLocations.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <div className="text-4xl mb-2">⭐</div>
-                    <p>No saved locations</p>
-                    <p className="text-sm">Save important places from history!</p>
-                  </div>
-                ) : (
-                  savedLocations.map(item => (
-                    <div key={item.id} className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-lg p-3 border border-yellow-200 hover:shadow-md transition">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <p className="font-semibold text-sm line-clamp-1">{item.location.address}</p>
-                          <p className="text-xs text-gray-500">
-                            Saved: {new Date(item.timestamp).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className={`px-2 py-1 rounded text-xs font-bold ${getRiskColor(item.safety.riskLevel)}`}>
-                          {item.safety.riskLevel}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 text-center mb-2">
-                        <div>
-                          <div className="text-xs text-gray-600">Safety</div>
-                          <div className="font-bold text-green-600">{item.safety.overallSafety}%</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-gray-600">Crime</div>
-                          <div className="font-bold text-red-600">{item.safety.crimeRate}%</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-gray-600">Accidents</div>
-                          <div className="font-bold text-orange-600">{item.safety.accidentRate}%</div>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => loadHistoryLocation(item)}
-                          className="flex-1 bg-blue-600 text-white py-1 rounded text-xs font-semibold hover:bg-blue-700"
-                        >
-                          View on Map
-                        </button>
-                        <button
-                          onClick={() => toggleSaveLocation(item.id)}
-                          className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-xs font-semibold hover:bg-gray-300"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Map */}
-        <div className="flex-1">
-          <Map
-            onLocationChange={handleLocationChange}
-            emergencyCenters={result?.emergencyCenters}
-            userLocation={currentLocation}
-          />
-        </div>
-      </div>
+      </footer>
     </div>
   );
 }

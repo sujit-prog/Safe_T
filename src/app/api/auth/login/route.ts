@@ -21,16 +21,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ⚠️ still NOT secure, but fine for MVP
     const token = crypto.randomUUID();
 
-    return NextResponse.json({
+    // ✅ CREATE RESPONSE OBJECT
+    const response = NextResponse.json({
       user: {
         name: user.name,
         email: user.email,
       },
-      token,
     });
+
+    // ✅ SET COOKIE HERE
+    response.cookies.set("token", token, {
+      httpOnly: true,
+      path: "/",
+      sameSite: "lax",
+    });
+
+    return response;
+
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json(
