@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { users } from "../_store";
+import { prisma } from "@/lib/prisma";
+import bcrypt from "bcrypt";
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,9 +13,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = users.get(email);
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
 
-    if (!user || user.password !== password) {
+    if (!user) {
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401 }
+      );
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
       return NextResponse.json(
         { error: "Invalid email or password" },
         { status: 401 }
@@ -26,6 +38,7 @@ export async function POST(request: NextRequest) {
     // ✅ CREATE RESPONSE OBJECT
     const response = NextResponse.json({
       user: {
+        id: user.id,
         name: user.name,
         email: user.email,
       },

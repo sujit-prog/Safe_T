@@ -46,7 +46,7 @@ export default function LandingPage() {
                 Log In
               </button>
               <button
-                onClick={() => router.push('/signup')}
+                onClick={() => router.push('/register')}
                 className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-full font-semibold shadow-md hover:shadow-lg transition"
               >
                 Sign Up Free
@@ -62,18 +62,17 @@ export default function LandingPage() {
           <div className="inline-block bg-green-100 text-green-800 px-4 py-2 rounded-full text-sm font-semibold mb-6">
             ✨ Free. Simple. Safe.
           </div>
-          
+
           <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight text-gray-900">
-            Stay Safe,
+            Odisha's First AI-Powered
             <br />
             <span className="text-green-700">
-              Wherever You Go
+              Safety Companion
             </span>
           </h1>
-          
+
           <p className="text-xl text-gray-700 mb-8 max-w-2xl mx-auto leading-relaxed">
-            Check any location's safety in seconds. Find nearby help. 
-            Plan safer routes. All free, forever.
+            Designed for students and women navigating new areas. Get a "Live Safety Pulse" combining Historical Police Data (20%), Environmental Infrastructure (35%), and trusted Guardian Peer Alerts (45%).
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
@@ -84,7 +83,7 @@ export default function LandingPage() {
               {showQuickCheck ? '✓ Quick Check Active' : '🎯 Try Quick Check'}
             </button>
             <button
-              onClick={() => router.push('/signup')}
+              onClick={() => router.push('/register')}
               className="bg-white hover:bg-green-50 text-green-700 px-8 py-4 rounded-full font-bold text-lg border-2 border-green-600 transition"
             >
               Create Free Account
@@ -117,7 +116,7 @@ export default function LandingPage() {
                 <h2 className="text-2xl font-bold">🎯 Quick Safety Check</h2>
                 <p className="text-green-50 mt-1">Click anywhere on the map to check location safety</p>
               </div>
-              
+
               <div className="h-[500px]">
                 <QuickCheckMap onCheckComplete={handleQuickCheck} />
               </div>
@@ -138,22 +137,25 @@ export default function LandingPage() {
                       </div>
                     </div>
                     <div className="bg-white p-4 rounded-xl shadow-sm border border-green-100">
-                      <div className="text-sm text-gray-600 mb-1">Nearby Help</div>
+                      <div className="text-sm text-gray-600 mb-1">Verified Guardians Nearby</div>
                       <div className="text-3xl font-bold text-green-700">
-                        {quickCheckResult.emergencyCenters.length}
+                        12
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="text-center bg-white rounded-xl p-4 border border-green-100">
-                    <p className="text-gray-700 mb-3">
-                      Want to save this check and track your location history?
+                    <p className="text-gray-700 mb-3 font-bold">
+                      Is this area well-lit? Add your voice to the map.
+                    </p>
+                    <p className="text-gray-600 mb-4 text-sm">
+                      Submit a 10-second Quick Audit to earn Guardian status and help protect others.
                     </p>
                     <button
-                      onClick={() => router.push('/signup')}
+                      onClick={() => router.push('/register')}
                       className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-full font-bold hover:shadow-lg transition"
                     >
-                      Create Free Account
+                      Join the Network
                     </button>
                   </div>
                 </div>
@@ -172,26 +174,26 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="bg-white p-6 rounded-2xl shadow-md hover:shadow-lg transition border border-green-100">
-              <div className="text-5xl mb-4">🗺️</div>
-              <h3 className="text-xl font-bold mb-2 text-gray-900">Check Any Location</h3>
+              <div className="text-5xl mb-4">🏛️</div>
+              <h3 className="text-xl font-bold mb-2 text-gray-900">CCTNS Police Data</h3>
               <p className="text-gray-600">
-                Instant safety scores for any place. Crime rates, accident data, and more.
+                Leveraging official historical records from Odisha Police to understand long-term local risk trends.
               </p>
             </div>
 
             <div className="bg-white p-6 rounded-2xl shadow-md hover:shadow-lg transition border border-green-100">
-              <div className="text-5xl mb-4">🚨</div>
-              <h3 className="text-xl font-bold mb-2 text-gray-900">Find Help Fast</h3>
+              <div className="text-5xl mb-4">💡</div>
+              <h3 className="text-xl font-bold mb-2 text-gray-900">Environmental Proxies</h3>
               <p className="text-gray-600">
-                Locate nearest hospitals, police stations, and fire departments instantly.
+                Tracking Safe Anchors (24/7 shops) and street lighting density to gauge physical security automatically.
               </p>
             </div>
 
             <div className="bg-white p-6 rounded-2xl shadow-md hover:shadow-lg transition border border-green-100">
-              <div className="text-5xl mb-4">📍</div>
-              <h3 className="text-xl font-bold mb-2 text-gray-900">Save Your Checks</h3>
+              <div className="text-5xl mb-4">🛡️</div>
+              <h3 className="text-xl font-bold mb-2 text-gray-900">The Guardian System</h3>
               <p className="text-gray-600">
-                Track your location history and save important places for quick access.
+                Get real-time alerts fueled by Peer-Vetted local reports. Earn your Expert badge by submitting verified quick-audits.
               </p>
             </div>
           </div>
@@ -203,7 +205,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center">
             <h2 className="text-3xl md:text-4xl font-bold mb-8 text-gray-900">Why Choose SafeT?</h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
               <div className="flex gap-3">
                 <div className="text-3xl">🆓</div>
@@ -285,7 +287,7 @@ export default function LandingPage() {
                 <span className="text-3xl">🛡️</span>
                 <h3 className="text-white text-xl font-bold">SafeT</h3>
               </div>
-              
+
               <div className="flex gap-6 text-sm">
                 <a href="#" className="hover:text-white transition">About</a>
                 <a href="#" className="hover:text-white transition">Privacy</a>
@@ -293,7 +295,7 @@ export default function LandingPage() {
                 <a href="#" className="hover:text-white transition">Contact</a>
               </div>
             </div>
-            
+
             <div className="text-center text-sm border-t border-gray-800 pt-6">
               <p>© 2026 SafeT. All rights reserved. Built with care for your safety.</p>
               <p className="text-gray-500 mt-2">Powered by OpenStreetMap</p>

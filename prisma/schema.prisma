@@ -13,4 +13,46 @@ model User {
   email     String   @unique
   password  String
   createdAt DateTime @default(now())
+
+  checkHistory      CheckHistory[]
+  guardianConnections GuardianConnection[]
+}
+
+model CheckHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  location  String
+  score     Int
+  status    String   // "Verified Safe", "Caution Advised", "Higher Risk"
+  createdAt DateTime @default(now())
+}
+
+model NetworkAlert {
+  id          String   @id @default(uuid())
+  type        String   // "Alert", "Traffic", "Hazard", "Safety"
+  location    String
+  description String
+  createdAt   DateTime @default(now())
+  isVerified  Boolean  @default(false)
+}
+
+model GuardianConnection {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  guardianName   String
+  guardianStatus String   // "Online", "Offline"
+  createdAt      DateTime @default(now())
+}
+
+model SafeAnchor {
+  id          String   @id @default(uuid())
+  name        String
+  type        String   // "Police Station", "Hospital", "24/7 Store"
+  distanceStr String   // E.g., "1.2km"
+  statusStr   String   // E.g., "24/7 Open", "ER Active"
+  latitude    Float
+  longitude   Float
+  createdAt   DateTime @default(now())
 }

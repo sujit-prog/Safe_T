@@ -9,10 +9,12 @@ export interface EmergencyCenter {
 }
 
 export interface SafetyMetrics {
-  crimeRate: number;
-  accidentRate: number;
+  historicalScore: number; // 20% weight
+  environmentalScore: number; // 35% weight
+  activeAlertScore: number; // 45% weight
   overallSafety: number;
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  isNightMultiplierActive: boolean; // 30% penalty
+  riskLevel: 'Verified Safe' | 'Caution Advised' | 'Higher Risk';
 }
 
 export interface LocationData {
@@ -56,6 +58,12 @@ export interface EmergencyContact {
 export interface User {
   name: string;
   email: string;
+}
+
+export interface GuardianStats {
+  verifiedReports: number; // Needs 5 for Expert
+  peerConfirmations: number; // Needs 5 for Expert
+  isExpert: boolean;
 }
 
 // Component prop types

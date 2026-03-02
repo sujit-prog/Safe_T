@@ -37,7 +37,25 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json({ message: "User created", user });
+    const token = crypto.randomUUID();
+
+    const response = NextResponse.json({
+      message: "User created",
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      }
+    });
+
+    // set login cookie immediately
+    response.cookies.set("token", token, {
+      httpOnly: true,
+      path: "/",
+      sameSite: "lax",
+    });
+
+    return response;
 
   } catch (error) {
     console.error(error);

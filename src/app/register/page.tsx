@@ -1,25 +1,23 @@
 "use client";
 
-import React, { useState, ChangeEvent, FormEvent } from "react";
-import { 
-  ShieldCheck, 
-  Lock, 
-  Mail, 
+import { useRouter } from "next/navigation";
+import React, { useState, ChangeEvent, FormEvent, useEffect } from "react";
+import {
+  ShieldCheck,
+  Lock,
+  Mail,
   User,
   ArrowLeft,
   ChevronRight,
   Heart,
   CheckCircle2
 } from "lucide-react";
+import Link from "next/link";
 
-/**
- * TYPE DEFINITIONS
- */
 interface SignupFormData {
   fullName: string;
   email: string;
   password: string;
-  confirmPassword?: string;
 }
 
 interface PageConfig {
@@ -28,24 +26,31 @@ interface PageConfig {
   accentTint: string;
 }
 
-/**
- * CONFIGURATION
- * Change the values below to update the visual theme.
- */
 const PAGE_CONFIG: PageConfig = {
-  backgroundImage: "https://res.cloudinary.com/dhigdp9hk/image/upload/v1770899597/article_1_1_como6d.webp", 
-  backgroundOverlayOpacity: "bg-black/40", 
-  accentTint: "bg-green-900/10"
+  backgroundImage: "https://res.cloudinary.com/dhigdp9hk/image/upload/v1770899597/article_1_1_como6d.webp",
+  backgroundOverlayOpacity: "bg-black/45",
+  accentTint: "bg-green-900/15"
 };
 
 export default function SignupPage() {
+  const router = useRouter();
+  const [error, setError] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
+
   const [formData, setFormData] = useState<SignupFormData>({
     fullName: "",
     email: "",
     password: "",
-    confirmPassword: ""
   });
-  const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
+
+  useEffect(() => {
+    fetch("/api/auth/me").then(res => {
+      if (res.ok) {
+        router.push("/dashboard");
+      }
+    });
+  }, [router]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -53,59 +58,71 @@ export default function SignupPage() {
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-  try {
-    const res = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: "Sujit", // or from input
-        email: formData.email,
-        password: formData.password,
-      }),
-    });
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: formData.fullName,
+          email: formData.email,
+          password: formData.password,
+        }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok) {
-      alert(data.error);
-      return;
+      if (!res.ok) {
+        setError(data.error || "Registration failed");
+        setLoading(false);
+        return;
+      }
+
+      if (data.user) {
+        localStorage.setItem("safet_user", JSON.stringify(data.user));
+      }
+
+      setIsSubmitted(true);
+
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 1500);
+
+    } catch (err) {
+      setError("Something went wrong");
+      setLoading(false);
     }
-
-    alert("User registered successfully!");
-
-  } catch (error) {
-    console.error(error);
-  }
-};
-
+  };
 
   if (isSubmitted) {
     return (
       <div className="relative flex min-h-screen items-center justify-center px-6 overflow-hidden">
-        <div 
-          className="absolute inset-0 bg-cover bg-center scale-110 blur-sm transition-all duration-1000" 
+        <div
+          className="absolute inset-0 bg-cover bg-center scale-110 blur-2xl transition-all duration-1000"
           style={{ backgroundImage: `url(${PAGE_CONFIG.backgroundImage})` }}
         />
-        <div className={`absolute inset-0 ${PAGE_CONFIG.backgroundOverlayOpacity} backdrop-blur-md`} />
+        <div className={`absolute inset-0 ${PAGE_CONFIG.backgroundOverlayOpacity} backdrop-blur-sm`} />
 
-        <div className="relative w-full max-w-md bg-white/90 backdrop-blur-xl p-12 rounded-[3rem] border border-white/20 shadow-2xl text-center animate-in fade-in zoom-in duration-500">
+        <div className="relative w-full max-w-md bg-white/95 backdrop-blur-xl p-12 rounded-[3rem] border border-white/20 shadow-2xl text-center animate-in fade-in zoom-in duration-500">
           <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-200">
             <CheckCircle2 className="w-10 h-10 text-white" />
           </div>
           <h2 className="text-3xl font-extrabold text-stone-900 mb-4 tracking-tight">Welcome Home</h2>
           <p className="text-stone-600 mb-8 leading-relaxed">
-            Your neighborhood is waiting, <span className="text-green-600 font-bold">{formData.fullName.split(' ')[0]}</span>. Your account is ready.
+            Your neighborhood is waiting, <span className="text-green-600 font-bold">{formData.fullName.split(' ')[0] || "Friend"}</span>. Your account is ready.
           </p>
-          <button 
-            type="button"
-            className="w-full bg-green-600 text-white py-4 rounded-full font-bold text-lg hover:bg-green-700 transition-all shadow-xl shadow-green-900/20"
-          >
-            Enter Dashboard
-          </button>
+          <div className="flex justify-center">
+            <div className="flex gap-1.5">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-bounce"></span>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -113,27 +130,25 @@ export default function SignupPage() {
 
   return (
     <div className="relative min-h-screen flex items-center justify-center px-6 font-sans text-stone-800 py-12 overflow-x-hidden">
-      {/* Background Image Layer */}
-      <div 
-        className="absolute inset-0 bg-cover bg-center transition-transform duration-[10s] hover:scale-105" 
+      <div
+        className="absolute inset-0 bg-cover bg-center transition-transform duration-[15s] hover:scale-110 blur-[4px]"
         style={{ backgroundImage: `url(${PAGE_CONFIG.backgroundImage})` }}
       />
-      
-      {/* Blending Layers */}
+
       <div className={`absolute inset-0 ${PAGE_CONFIG.backgroundOverlayOpacity} ${PAGE_CONFIG.accentTint}`} />
-      <div className="absolute inset-0 bg-gradient-to-t from-stone-900/80 via-transparent to-stone-900/40" />
+      <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-transparent to-stone-900/30" />
 
       <div className="relative w-full max-w-md z-10">
-        <button 
-          type="button"
-          className="flex items-center gap-2 text-white/70 hover:text-white transition-colors mb-8 font-bold text-xs uppercase tracking-[0.2em] group drop-shadow-sm"
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-white/80 hover:text-white transition-colors mb-8 font-bold text-xs uppercase tracking-[0.25em] group drop-shadow-md"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          Back to Safety
-        </button>
+          Return Home
+        </Link>
 
-        <div className="bg-white/95 backdrop-blur-md p-10 md:p-12 rounded-[3.5rem] border border-white shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] relative overflow-hidden">
-          
+        <div className="bg-white/98 backdrop-blur-md p-10 md:p-12 rounded-[3.5rem] border border-white shadow-[0_32px_64px_-16px_rgba(0,0,0,0.4)] relative overflow-hidden">
+
           <div className="text-center mb-10">
             <div className="w-14 h-14 bg-green-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-green-200 transform -rotate-3 hover:rotate-0 transition-transform">
               <ShieldCheck className="w-8 h-8 text-white" />
@@ -171,7 +186,7 @@ export default function SignupPage() {
             {/* Email */}
             <div className="space-y-1.5">
               <label className="block text-[10px] font-black text-stone-400 uppercase tracking-[0.2em] ml-4">
-                Email
+                Email Address
               </label>
               <div className="relative group">
                 <div className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-green-500 transition-colors">
@@ -214,28 +229,36 @@ export default function SignupPage() {
 
             <button
               type="submit"
-              className="w-full bg-green-500 text-white py-4.5 rounded-full font-bold text-lg hover:bg-green-600 hover:shadow-2xl hover:shadow-green-500/30 transition-all flex items-center justify-center gap-2 group mt-6"
+              disabled={loading}
+              className="w-full bg-green-500 text-white py-[18px] rounded-full font-bold text-lg hover:bg-green-600 transition-all flex items-center justify-center gap-2 group mt-6 disabled:opacity-70"
             >
-              Sign Up
-              <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              {loading ? "Creating account..." : "Sign Up"}
+              {!loading && (
+                <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              )}
             </button>
           </form>
+          {error && (
+            <p className="text-red-500 text-sm text-center mt-4 font-bold">
+              {error}
+            </p>
+          )}
 
           <div className="mt-8 text-center border-t border-stone-50 pt-8">
             <p className="text-[10px] text-stone-400 font-black uppercase tracking-[0.15em]">
               Already joined?{" "}
-              <button 
-                type="button"
-                className="text-green-600 hover:text-green-700 underline underline-offset-4 transition-colors"
+              <Link
+                href="/login"
+                className="text-green-600 hover:text-green-700 underline underline-offset-4 transition-colors font-black"
               >
                 Log In
-              </button>
+              </Link>
             </p>
           </div>
         </div>
 
         {/* Footer Note */}
-        <div className="mt-8 flex items-center justify-center gap-2 text-[10px] text-white/50 font-black tracking-[0.3em] uppercase drop-shadow-sm">
+        <div className="mt-8 flex items-center justify-center gap-2 text-[10px] text-white/60 font-black tracking-[0.35em] uppercase drop-shadow-sm">
           <Heart className="w-3 h-3 text-green-400 fill-green-400" />
           The SafeT Community
         </div>
