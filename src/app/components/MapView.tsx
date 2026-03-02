@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet-routing-machine';
 
 interface EmergencyCenter {
   type: 'hospital' | 'police' | 'fire';
@@ -16,6 +17,8 @@ interface MapViewProps {
   onLocationChange?: (lat: number, lng: number, address: string) => void;
   emergencyCenters?: EmergencyCenter[];
   userLocation?: { lat: number; lng: number } | null;
+  routeOrigin?: string;
+  routeDestination?: string;
 }
 
 // Fix for default marker icon in Next.js
@@ -29,12 +32,13 @@ const fixLeafletIcon = () => {
   });
 };
 
-export default function MapView({ onLocationChange, emergencyCenters, userLocation }: MapViewProps) {
+export default function MapView({ onLocationChange, emergencyCenters, userLocation, routeOrigin, routeDestination }: MapViewProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
   const emergencyLayerRef = useRef<L.LayerGroup | null>(null);
-  
+  const routingControlRef = useRef<any>(null);
+
   const [error, setError] = useState<string>('');
   const [isTracking, setIsTracking] = useState(false);
   const [mapReady, setMapReady] = useState(false);
@@ -104,6 +108,59 @@ export default function MapView({ onLocationChange, emergencyCenters, userLocati
     updateEmergencyMarkers(emergencyCenters);
   }, [mapReady, emergencyCenters]);
 
+  const getCoordsFromAddress = async (addr: string) => {
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}&limit=1`, {
+        headers: { 'User-Agent': 'SafeT-Location-Tracker' }
+      });
+      const data = await response.json();
+      if (data && data.length > 0) {
+        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+      }
+    } catch (e) {
+      console.error('Geocoding error:', e);
+    }
+    return null;
+  };
+
+  // Handle routing when origin or destination changes
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current) return;
+
+    const calculateRoute = async () => {
+      // Clean up previous route
+      if (routingControlRef.current) {
+        mapInstanceRef.current?.removeControl(routingControlRef.current);
+        routingControlRef.current = null;
+      }
+
+      if (!routeOrigin || !routeDestination) return;
+
+      const originCoords = await getCoordsFromAddress(routeOrigin);
+      const destCoords = await getCoordsFromAddress(routeDestination);
+
+      if (originCoords && destCoords) {
+        // @ts-ignore
+        routingControlRef.current = L.Routing.control({
+          waypoints: [
+            L.latLng(originCoords.lat, originCoords.lng),
+            L.latLng(destCoords.lat, destCoords.lng)
+          ],
+          routeWhileDragging: false,
+          addWaypoints: false,
+          show: false, // hide instructions panel
+          lineOptions: {
+            styles: [{ color: '#3b82f6', weight: 6, opacity: 0.8 }],
+            extendToWaypoints: true,
+            missingRouteTolerance: 10
+          }
+        }).addTo(mapInstanceRef.current as L.Map);
+      }
+    };
+
+    calculateRoute();
+  }, [mapReady, routeOrigin, routeDestination]);
+
   const handleMapClick = (lat: number, lng: number) => {
     getAddressFromCoords(lat, lng);
   };
@@ -115,12 +172,12 @@ export default function MapView({ onLocationChange, emergencyCenters, userLocati
     }
 
     setIsTracking(true);
-    
+
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
-        
+
         if (mapInstanceRef.current) {
           mapInstanceRef.current.setView([lat, lng], 15);
           updateUserMarker({ lat, lng });
@@ -131,7 +188,7 @@ export default function MapView({ onLocationChange, emergencyCenters, userLocati
       (error) => {
         console.error('Geolocation error:', error);
         let errorMessage = 'Could not get your location. ';
-        
+
         switch (error.code) {
           case error.PERMISSION_DENIED:
             errorMessage += 'Please enable location permissions in your browser.';
@@ -145,7 +202,7 @@ export default function MapView({ onLocationChange, emergencyCenters, userLocati
           default:
             errorMessage += 'An unknown error occurred.';
         }
-        
+
         setError(errorMessage);
         setIsTracking(false);
       },
@@ -200,7 +257,7 @@ export default function MapView({ onLocationChange, emergencyCenters, userLocati
     // Add new markers
     centers.forEach(center => {
       const icon = getEmergencyIcon(center.type);
-      
+
       const marker = L.marker([center.lat, center.lng], { icon })
         .bindPopup(`
           <div style="min-width: 150px;">
@@ -273,7 +330,7 @@ export default function MapView({ onLocationChange, emergencyCenters, userLocati
 
       const data = await response.json();
       const address = data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-      
+
       onLocationChange?.(lat, lng, address);
     } catch (error) {
       console.error('Geocoding error:', error);
@@ -305,7 +362,7 @@ export default function MapView({ onLocationChange, emergencyCenters, userLocati
           </div>
         </div>
       )}
-      
+
       {/* My Location Button */}
       <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
         <button
@@ -320,8 +377,8 @@ export default function MapView({ onLocationChange, emergencyCenters, userLocati
       </div>
 
       {/* Map Container */}
-      <div 
-        ref={mapRef} 
+      <div
+        ref={mapRef}
         className="w-full h-full"
       />
 

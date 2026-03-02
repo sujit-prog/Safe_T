@@ -1,433 +1,497 @@
-'use client';
+"use client";
 
-type PageProps = {
-  params: Promise<Record<string, string>>;
-};
+import React, { useState } from "react";
+import {
+  MapPin,
+  User,
+  Bell,
+  Search,
+  ChevronRight,
+  AlertTriangle,
+  Calendar,
+  AlertOctagon,
+  Navigation,
+  MessageSquare,
+  Ambulance,
+  Shield,
+  Navigation2,
+  Phone
+} from "lucide-react";
+import { useRouter } from "next/navigation";
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
-import Link from 'next/link';
-import type { MapViewProps, SafetyResult } from '../../types';
-
-const Map = dynamic<MapViewProps>(() => import('../components/map/MapView'), {
-  ssr: false,
-  loading: () => (
-    <div className="flex items-center justify-center h-full bg-gray-100">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-gray-600">Loading map...</p>
-      </div>
-    </div>
-  )
-});
-
-interface SearchHistory {
+/**
+ * TYPE DEFINITIONS
+ */
+interface CheckHistoryItem {
   id: string;
-  location: {
-    lat: number;
-    lng: number;
-    address: string;
-  };
-  safety: {
-    overallSafety: number;
-    crimeRate: number;
-    accidentRate: number;
-    riskLevel: string;
-  };
-  timestamp: string;
-  saved: boolean;
+  location: string;
+  date: string;
+  score: number;
+  status: "Verified Safe" | "Caution Advised" | "Higher Risk";
 }
 
-export default function HistoryPage({ params }: PageProps){
+export default function DashboardOverview() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const isWelcome = searchParams.get('welcome') === 'true';
+  const [userName, setUserName] = useState("Friend");
+  const [currentLocation, setCurrentLocation] = useState("Loading location...");
+  const [transitStatus, setTransitStatus] = useState<'Safe' | 'In Transit'>('Safe');
 
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
-  const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [address, setAddress] = useState('');
-  const [result, setResult] = useState<SafetyResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<SearchHistory[]>([]);
-  const [activeTab, setActiveTab] = useState<'map' | 'history' | 'saved'>('map');
-  const [showWelcome, setShowWelcome] = useState(isWelcome);
+  const [origin, setOrigin] = useState("");
+  const [destination, setDestination] = useState("");
+  const [isSosActive, setIsSosActive] = useState(false);
+  const [etaInfo, setEtaInfo] = useState<{ time: string, distance: string, routeQuality: string } | null>(null);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [dashboardData, setDashboardData] = useState<{
+    history: any[];
+    networkAlerts: any[];
+    guardians: any[];
+    anchors: any[];
+  } | null>(null);
 
-  useEffect(() => {
-    // Check authentication
-    const userData = localStorage.getItem('safet_user');
-    if (!userData) {
-      router.push('/login');
-      return;
-    }
-    setUser(JSON.parse(userData));
+  React.useEffect(() => {
+    fetch('/api/dashboard/overview')
+      .then(res => res.json())
+      .then(data => {
+        if (!data.error) setDashboardData(data);
+      })
+      .catch(console.error);
+  }, []);
 
-    // Load search history
-    const savedHistory = localStorage.getItem('safet_history');
-    if (savedHistory) {
-      setHistory(JSON.parse(savedHistory));
-    }
-  }, [router]);
-
-  const handleLocationChange = (lat: number, lng: number, addr: string) => {
-    setCurrentLocation({ lat, lng });
-    setAddress(addr);
-  };
-
-  const checkSafety = async (lat?: number, lng?: number, fromHistory?: boolean) => {
-    const checkLat = lat || currentLocation?.lat;
-    const checkLng = lng || currentLocation?.lng;
-
-    if (!checkLat || !checkLng) return;
-
+  const calculateETA = async (startQuery: string, endQuery: string) => {
+    setIsCalculating(true);
     try {
-      setLoading(true);
-      const response = await fetch(`/api/safety?lat=${checkLat}&lng=${checkLng}&address=${encodeURIComponent(address)}`);
-      const data = await response.json();
-      setResult(data);
+      // Very basic simulation of finding distance using Nominatim bounding box logic
+      // In a real app, this would be an OSRM or Google Maps Directions API call
+      const resStart = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(startQuery)}`);
+      const startData = await resStart.json();
 
-      // Add to history (only if not from history click)
-      if (!fromHistory) {
-        const newHistoryItem: SearchHistory = {
-          id: Date.now().toString(),
-          location: data.location,
-          safety: data.safety,
-          timestamp: data.timestamp,
-          saved: false
-        };
+      const resEnd = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(endQuery)}`);
+      const endData = await resEnd.json();
 
-        const updatedHistory = [newHistoryItem, ...history].slice(0, 50); // Keep last 50
-        setHistory(updatedHistory);
-        localStorage.setItem('safet_history', JSON.stringify(updatedHistory));
+      if (startData.length > 0 && endData.length > 0) {
+        const lat1 = parseFloat(startData[0].lat);
+        const lon1 = parseFloat(startData[0].lon);
+        const lat2 = parseFloat(endData[0].lat);
+        const lon2 = parseFloat(endData[0].lon);
+
+        // Haversine formula for rough straight-line distance
+        const R = 6371; // km
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distanceKm = R * c;
+
+        // Simulate road distance by multiplying straight line by ~1.3
+        const roadDistance = distanceKm * 1.3;
+
+        // Assume avg speed of 30 km/h in city traffic
+        const timeHours = roadDistance / 30;
+        let timeStr = "";
+
+        if (timeHours < 1) {
+          timeStr = `${Math.round(timeHours * 60)} min`;
+        } else {
+          const h = Math.floor(timeHours);
+          const m = Math.round((timeHours - h) * 60);
+          timeStr = `${h}h ${m}m`;
+        }
+
+        // Determine route quality based on distance
+        let routeQuality = "Optimal";
+        if (roadDistance > 10) routeQuality = "Moderate Traffic";
+        if (roadDistance > 25) routeQuality = "Heavy Congestion";
+
+        setEtaInfo({
+          time: timeStr,
+          distance: roadDistance < 1 ? '< 1 km' : `${roadDistance.toFixed(1)} km`,
+          routeQuality: routeQuality
+        });
+      } else {
+        setEtaInfo(null);
       }
     } catch (error) {
-      console.error('Safety check failed:', error);
+      console.error("ETA Calculation error:", error);
+      setEtaInfo(null);
     } finally {
-      setLoading(false);
+      setIsCalculating(false);
     }
   };
 
-  const toggleSaveLocation = (id: string) => {
-    const updatedHistory = history.map(item =>
-      item.id === id ? { ...item, saved: !item.saved } : item
-    );
-    setHistory(updatedHistory);
-    localStorage.setItem('safet_history', JSON.stringify(updatedHistory));
+  const handleRouteSearch = async () => {
+    if (!destination.trim()) return;
+    await calculateETA(origin, destination);
   };
 
-  const deleteHistoryItem = (id: string) => {
-    const updatedHistory = history.filter(item => item.id !== id);
-    setHistory(updatedHistory);
-    localStorage.setItem('safet_history', JSON.stringify(updatedHistory));
+  const handleQuickDestination = async (dest: string) => {
+    setDestination(dest);
+    await calculateETA(origin, dest);
   };
 
-  const loadHistoryLocation = (item: SearchHistory) => {
-    setCurrentLocation({ lat: item.location.lat, lng: item.location.lng });
-    setAddress(item.location.address);
-    setResult(null); // Clear result; user can press Check Safety to re-analyze
-    setActiveTab('map');
+  const navigateToMap = () => {
+    if (!destination.trim()) return;
+    router.push(`/dashboard/map?destination=${encodeURIComponent(destination)}&origin=${encodeURIComponent(origin)}`);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('safet_user');
-    router.push('/');
-  };
-
-  const getRiskColor = (level: string) => {
-    switch (level) {
-      case 'LOW': return 'text-green-600 bg-green-100';
-      case 'MEDIUM': return 'text-yellow-600 bg-yellow-100';
-      case 'HIGH': return 'text-orange-600 bg-orange-100';
-      case 'CRITICAL': return 'text-red-600 bg-red-100';
-      default: return 'text-gray-600 bg-gray-100';
+  React.useEffect(() => {
+    const userData = localStorage.getItem('safet_user');
+    if (userData) {
+      try {
+        const user = JSON.parse(userData);
+        if (user.name) setUserName(user.name.split(' ')[0]);
+      } catch (e) { }
+    } else {
+      window.location.href = '/login';
     }
-  };
 
-  const savedLocations = history.filter(item => item.saved);
+    // Fetch User GPS Location
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            // Using a free reverse geocoding API for demonstration
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
+            const data = await res.json();
 
-  if (!user) return null;
+            const city = data.address.city || data.address.town || data.address.village || "Odisha";
+            const neighborhood = data.address.suburb || data.address.neighbourhood || data.address.residential || "";
+            const displayLoc = neighborhood ? `${neighborhood}, ${city}` : city;
+
+            setCurrentLocation(displayLoc);
+            setOrigin(displayLoc);
+          } catch (error) {
+            console.error("Reverse geocoding failed", error);
+            setCurrentLocation("KIIT Campus Area, Bhubaneswar");
+            setOrigin("KIIT Campus Area, Bhubaneswar");
+          }
+        },
+        (error) => {
+          console.error("Geolocation error:", error);
+          setCurrentLocation("KIIT Campus Area, Bhubaneswar");
+          setOrigin("KIIT Campus Area, Bhubaneswar");
+        }
+      );
+    } else {
+      setCurrentLocation("KIIT Campus Area, Bhubaneswar");
+      setOrigin("KIIT Campus Area, Bhubaneswar");
+    }
+  }, []);
+
+  // Dashboard data is now fetched from the API
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      {/* Welcome Modal */}
-      {showWelcome && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
-            <div className="text-center">
-              <div className="text-6xl mb-4">🎉</div>
-              <h2 className="text-3xl font-bold mb-2">Welcome to SafeT!</h2>
-              <p className="text-gray-600 mb-6">
-                Your account has been created successfully. Start exploring safety information for any location!
-              </p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-left">
-                <h3 className="font-semibold text-blue-900 mb-2">Quick Tips:</h3>
-                <ul className="text-sm text-blue-800 space-y-1">
-                  <li>✓ Click anywhere on the map to check safety</li>
-                  <li>✓ Use "My Location" for quick GPS check</li>
-                  <li>✓ Save important locations for later</li>
-                  <li>✓ View your search history anytime</li>
-                </ul>
-              </div>
-              <button
-                onClick={() => setShowWelcome(false)}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-full font-semibold hover:shadow-lg transition"
-              >
-                Get Started
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out relative">
 
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href="/" className="flex items-center gap-2">
-                <span className="text-2xl">🛡️</span>
-                <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  SafeT
-                </span>
-              </Link>
-              <span className="text-gray-300">|</span>
-              <span className="text-gray-600">Dashboard</span>
+      <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 relative z-10">
+        <div className="space-y-2">
+          <p className="text-sm font-bold tracking-widest text-emerald-600 uppercase">Live Dashboard</p>
+          <h1 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-stone-900 via-emerald-800 to-teal-900 tracking-tight">
+            Hello, {userName}
+          </h1>
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/60 backdrop-blur-md rounded-2xl border border-white/40 shadow-sm mt-4">
+            <div className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
             </div>
-            
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
-                  {user.name.charAt(0) || user.email.charAt(0).toUpperCase()}
-                </div>
-                <div className="hidden md:block">
-                  <div className="text-sm font-semibold">{user.name || user.email}</div>
-                  <div className="text-xs text-gray-500">{user.email}</div>
-                </div>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="text-gray-600 hover:text-red-600 font-medium transition"
-              >
-                Logout
-              </button>
-            </div>
+            <span className="text-sm font-bold text-stone-700">{currentLocation}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="p-1.5 bg-white/40 backdrop-blur-md rounded-2xl border border-white/50 flex shadow-lg">
+            <button
+              onClick={() => setTransitStatus('Safe')}
+              className={`px-6 py-2.5 rounded-xl text-sm font-black transition-all duration-300 ${transitStatus === 'Safe' ? 'bg-white text-emerald-600 shadow-md' : 'text-stone-500 hover:text-stone-700'}`}
+            >
+              Safe
+            </button>
+            <button
+              onClick={() => setTransitStatus('In Transit')}
+              className={`px-6 py-2.5 rounded-xl text-sm font-black transition-all duration-300 ${transitStatus === 'In Transit' ? 'bg-orange-500 text-white shadow-md shadow-orange-500/30' : 'text-stone-500 hover:text-stone-700'}`}
+            >
+              Moving
+            </button>
+          </div>
+          <button className="w-14 h-14 flex items-center justify-center bg-white/40 backdrop-blur-md border border-white/50 rounded-2xl text-stone-600 hover:bg-white/60 transition-all shadow-lg relative cursor-pointer">
+            <Bell className="w-6 h-6" />
+            <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+          </button>
+          <div className="w-14 h-14 bg-gradient-to-tr from-emerald-100 to-teal-50 border border-white/50 rounded-2xl flex items-center justify-center shadow-lg">
+            <User className="w-6 h-6 text-emerald-600" />
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
-        <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-          {/* Tabs */}
-          <div className="flex border-b border-gray-200">
-            <button
-              onClick={() => setActiveTab('map')}
-              className={`flex-1 py-3 px-4 font-semibold transition ${
-                activeTab === 'map'
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              🗺️ Map
-            </button>
-            <button
-              onClick={() => setActiveTab('history')}
-              className={`flex-1 py-3 px-4 font-semibold transition ${
-                activeTab === 'history'
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              📜 History ({history.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('saved')}
-              className={`flex-1 py-3 px-4 font-semibold transition ${
-                activeTab === 'saved'
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              ⭐ Saved ({savedLocations.length})
-            </button>
+      {/* Bento Grid layout */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 relative z-10">
+        {/* Glow behind grid */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 h-3/4 bg-emerald-400/20 blur-[120px] rounded-full pointer-events-none -z-10"></div>
+
+        {/* SOS Emergency Widget */}
+        <div className={`xl:col-span-1 rounded-[2.5rem] p-8 relative overflow-hidden flex flex-col justify-between min-h-[300px] transition-all duration-500 shadow-2xl ${isSosActive ? 'bg-gradient-to-br from-red-600 to-rose-700 shadow-red-600/40 animate-pulse' : 'bg-gradient-to-br from-red-500 to-orange-500 shadow-red-500/20 hover:shadow-red-500/30 hover:-translate-y-1'}`}>
+          <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/10 blur-3xl rounded-full pointer-events-none"></div>
+
+          <div className="relative z-10">
+            <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-6 border border-white/30">
+              <AlertOctagon className="w-7 h-7 text-white" />
+            </div>
+            <h2 className="text-3xl font-black text-white tracking-tight leading-none mb-3">
+              {isSosActive ? 'SOS ACTIVE' : 'SOS Call'}
+            </h2>
+            <p className="text-red-50 text-sm font-medium leading-relaxed opacity-90">
+              {isSosActive ? "Broadcasting live coordinates to guardians." : "Instant alert to emergency contacts."}
+            </p>
           </div>
 
-          {/* Tab Content */}
-          <div className="flex-1 overflow-y-auto p-4">
-            {activeTab === 'map' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Selected Location
-                  </label>
-                  <input
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Click on map to select"
-                    className="w-full border border-gray-300 px-3 py-2 rounded-lg"
-                    readOnly
-                  />
+          <button
+            onClick={() => setIsSosActive(!isSosActive)}
+            className={`relative w-full py-5 rounded-2xl font-black text-lg transition-all duration-300 flex items-center justify-center gap-3 overflow-hidden group shadow-lg ${isSosActive ? 'bg-white/10 text-white border border-white/30 hover:bg-white/20' : 'bg-white text-red-600 hover:scale-[1.02] active:scale-95'}`}
+          >
+            {isSosActive ? (
+              <><Phone className="w-6 h-6 animate-pulse" /> CANCEL 112</>
+            ) : (
+              <>ACTIVATE <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" /></>
+            )}
+          </button>
+        </div>
+
+        {/* Route Planner */}
+        <div className="xl:col-span-2 bg-white/60 backdrop-blur-2xl rounded-[2.5rem] p-8 border border-white shadow-2xl shadow-emerald-900/5 flex flex-col hover:-translate-y-1 transition-transform duration-500">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-2xl font-black text-stone-900 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                <Navigation className="w-5 h-5 text-white" />
+              </div>
+              Safe Route Planner
+            </h2>
+            <div className="px-4 py-2 bg-emerald-50 rounded-full border border-emerald-100 flex items-center gap-2 hidden sm:flex">
+              <Shield className="w-4 h-4 text-emerald-600" />
+              <span className="text-xs font-black text-emerald-700 uppercase tracking-widest">Network Active</span>
+            </div>
+          </div>
+
+          <div className="flex-1 space-y-4">
+            <div className="relative group">
+              <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+                <div className="w-3 h-3 rounded-full bg-blue-500 ring-4 ring-blue-500/20"></div>
+              </div>
+              <input
+                type="text"
+                value={origin}
+                onChange={(e) => setOrigin(e.target.value)}
+                className="w-full pl-14 pr-4 py-4 lg:py-5 bg-white/80 border border-stone-200 rounded-2xl text-stone-900 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all shadow-sm group-hover:shadow-md"
+                placeholder="Current Location"
+              />
+            </div>
+
+            <div className="relative group">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <MapPin className="w-5 h-5 text-red-500" />
+              </div>
+              <input
+                type="text"
+                value={destination}
+                onChange={(e) => setDestination(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleRouteSearch()}
+                className="w-full pl-14 pr-4 py-4 lg:py-5 bg-white/80 border border-stone-200 rounded-2xl text-stone-900 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all shadow-sm group-hover:shadow-md"
+                placeholder="Where to?"
+              />
+              <button
+                onClick={handleRouteSearch}
+                className="absolute inset-y-2 right-2 px-6 bg-stone-900 hover:bg-emerald-600 text-white rounded-xl font-bold transition-colors flex items-center gap-2 shadow-lg"
+              >
+                {isCalculating ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> : <>Go <Search className="w-4 h-4" /></>}
+              </button>
+            </div>
+
+            {etaInfo && (
+              <div className="mt-6 p-5 bg-stone-900 rounded-2xl border border-stone-800 text-white shadow-xl animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-black text-lg flex items-center gap-2">
+                    <Navigation className="w-5 h-5 text-emerald-400" />
+                    Route Overview
+                  </h3>
+                  <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${etaInfo.routeQuality === 'Optimal' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                    etaInfo.routeQuality === 'Moderate Traffic' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
+                      'bg-red-500/10 text-red-400 border-red-500/20'
+                    }`}>
+                    {etaInfo.routeQuality}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-5">
+                  <div className="p-4 rounded-xl bg-white/5 border border-white/10 flex flex-col items-center justify-center text-center">
+                    <span className="text-xs font-bold text-stone-400 mb-1 uppercase tracking-widest">Est. Time</span>
+                    <span className="text-2xl font-black text-white">{etaInfo.time}</span>
+                  </div>
+                  <div className="p-4 rounded-xl bg-white/5 border border-white/10 flex flex-col items-center justify-center text-center">
+                    <span className="text-xs font-bold text-stone-400 mb-1 uppercase tracking-widest">Distance</span>
+                    <span className="text-2xl font-black text-white">{etaInfo.distance}</span>
+                  </div>
                 </div>
 
                 <button
-                  onClick={() => checkSafety()}
-                  disabled={loading || !currentLocation}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition disabled:opacity-50"
+                  onClick={navigateToMap}
+                  className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-lg transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
                 >
-                  {loading ? 'Checking...' : 'Check Safety'}
+                  Start Navigation <ChevronRight className="w-5 h-5" />
                 </button>
-
-                {result && (
-                  <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                    <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full font-bold ${getRiskColor(result.safety.riskLevel)}`}>
-                      {result.safety.riskLevel} RISK
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Overall Safety</span>
-                        <span className="font-semibold">{result.safety.overallSafety}%</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Crime Rate</span>
-                        <span className="font-semibold">{result.safety.crimeRate}%</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Accident Rate</span>
-                        <span className="font-semibold">{result.safety.accidentRate}%</span>
-                      </div>
-                    </div>
-
-                    <div className="pt-3 border-t border-gray-200">
-                      <h4 className="font-semibold text-sm mb-2">Recommendations:</h4>
-                      <ul className="text-sm space-y-1">
-                        {result.recommendations?.map((rec: string, idx: number) => (
-                          <li key={idx} className="text-gray-600">• {rec}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
-            {activeTab === 'history' && (
-              <div className="space-y-3">
-                {history.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <div className="text-4xl mb-2">📍</div>
-                    <p>No search history yet</p>
-                    <p className="text-sm">Start checking locations!</p>
-                  </div>
-                ) : (
-                  history.map(item => (
-                    <div key={item.id} className="bg-gray-50 rounded-lg p-3 hover:shadow-md transition">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <p className="font-semibold text-sm line-clamp-1">{item.location.address}</p>
-                          <p className="text-xs text-gray-500">
-                            {new Date(item.timestamp).toLocaleString()}
-                          </p>
-                        </div>
-                        <div className={`px-2 py-1 rounded text-xs font-bold ${getRiskColor(item.safety.riskLevel)}`}>
-                          {item.safety.riskLevel}
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => loadHistoryLocation(item)}
-                          className="flex-1 bg-blue-600 text-white py-1 rounded text-xs font-semibold hover:bg-blue-700"
-                        >
-                          View
-                        </button>
-                        <button
-                          onClick={() => toggleSaveLocation(item.id)}
-                          className={`px-3 py-1 rounded text-xs font-semibold ${
-                            item.saved ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-700'
-                          }`}
-                        >
-                          {item.saved ? '⭐' : '☆'}
-                        </button>
-                        <button
-                          onClick={() => deleteHistoryItem(item.id)}
-                          className="px-3 py-1 bg-red-100 text-red-600 rounded text-xs font-semibold hover:bg-red-200"
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {activeTab === 'saved' && (
-              <div className="space-y-3">
-                {savedLocations.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <div className="text-4xl mb-2">⭐</div>
-                    <p>No saved locations</p>
-                    <p className="text-sm">Save important places from history!</p>
-                  </div>
-                ) : (
-                  savedLocations.map(item => (
-                    <div key={item.id} className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-lg p-3 border border-yellow-200 hover:shadow-md transition">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <p className="font-semibold text-sm line-clamp-1">{item.location.address}</p>
-                          <p className="text-xs text-gray-500">
-                            Saved: {new Date(item.timestamp).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className={`px-2 py-1 rounded text-xs font-bold ${getRiskColor(item.safety.riskLevel)}`}>
-                          {item.safety.riskLevel}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 text-center mb-2">
-                        <div>
-                          <div className="text-xs text-gray-600">Safety</div>
-                          <div className="font-bold text-green-600">{item.safety.overallSafety}%</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-gray-600">Crime</div>
-                          <div className="font-bold text-red-600">{item.safety.crimeRate}%</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-gray-600">Accidents</div>
-                          <div className="font-bold text-orange-600">{item.safety.accidentRate}%</div>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => loadHistoryLocation(item)}
-                          className="flex-1 bg-blue-600 text-white py-1 rounded text-xs font-semibold hover:bg-blue-700"
-                        >
-                          View on Map
-                        </button>
-                        <button
-                          onClick={() => toggleSaveLocation(item.id)}
-                          className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-xs font-semibold hover:bg-gray-300"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
+            <div className={`pt-4 flex gap-3 overflow-x-auto pb-2 scrollbar-none transition-all duration-300 ${etaInfo ? 'opacity-50 pointer-events-none hidden' : 'opacity-100'}`}>
+              <button onClick={() => handleQuickDestination('Home')} className="whitespace-nowrap flex-1 px-5 py-3 rounded-xl bg-white border border-stone-100 font-bold text-stone-600 hover:border-emerald-200 hover:text-emerald-600 transition-all flex items-center gap-3 shadow-sm cursor-pointer">
+                <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center text-lg">🏠</div>
+                Home
+              </button>
+              <button onClick={() => handleQuickDestination('Library')} className="whitespace-nowrap flex-1 px-5 py-3 rounded-xl bg-white border border-stone-100 font-bold text-stone-600 hover:border-emerald-200 hover:text-emerald-600 transition-all flex items-center gap-3 shadow-sm cursor-pointer">
+                <div className="w-8 h-8 rounded-full bg-purple-50 text-purple-500 flex items-center justify-center text-lg">📚</div>
+                Library
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Map */}
-        <div className="flex-1">
-          <Map
-            onLocationChange={handleLocationChange}
-            emergencyCenters={result?.emergencyCenters}
-            userLocation={currentLocation}
-          />
+        {/* Live Feed & Trusted Guardians -> Sleek dark card */}
+        <div className="xl:col-span-1 bg-stone-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl hover:-translate-y-1 transition-transform duration-500 flex flex-col">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 blur-[60px] rounded-full pointer-events-none"></div>
+
+          <h2 className="text-xl font-black mb-6 flex items-center gap-3 relative z-10 text-stone-100">
+            <AlertTriangle className="w-5 h-5 text-emerald-400" />
+            Live Network
+          </h2>
+
+          <div className="space-y-4 relative z-10 flex-1 overflow-y-auto pr-2 scrollbar-none">
+            {dashboardData ? dashboardData.networkAlerts.map(alert => (
+              <div key={alert.id} className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer group">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${alert.type === 'Alert' ? 'bg-orange-400 animate-pulse' : alert.type === 'Traffic' ? 'bg-blue-400' : 'bg-red-400'}`}></span>
+                    <span className={`text-xs font-bold uppercase tracking-widest ${alert.type === 'Alert' ? 'text-orange-300' : alert.type === 'Traffic' ? 'text-blue-300' : 'text-red-300'}`}>{alert.type}</span>
+                  </div>
+                  <span className="text-[10px] text-stone-400 font-bold">{new Date(alert.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+                <p className="text-sm font-medium text-stone-200 leading-snug">
+                  {alert.description}
+                </p>
+              </div>
+            )) : (
+              <div className="animate-pulse flex space-x-4">
+                <div className="flex-1 space-y-4 py-1">
+                  <div className="h-4 bg-white/20 rounded w-3/4"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-white/20 rounded"></div>
+                    <div className="h-4 bg-white/20 rounded w-5/6"></div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="pt-6 mt-6 border-t border-white/10 relative z-10">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-bold text-stone-400">Trusted Guardians</span>
+              <span className="text-emerald-400 font-black">2 Online</span>
+            </div>
+            <div className="flex gap-2 mt-4">
+              <div className="w-10 h-10 rounded-full bg-stone-800 border-2 border-emerald-500 flex items-center justify-center text-xs font-bold shadow-lg shadow-emerald-500/20 cursor-pointer hover:scale-110 transition-transform">
+                M
+              </div>
+              <div className="w-10 h-10 rounded-full bg-stone-800 border-2 border-emerald-500 flex items-center justify-center text-xs font-bold shadow-lg shadow-emerald-500/20 cursor-pointer hover:scale-110 transition-transform">
+                R
+              </div>
+              <button className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer">
+                +
+              </button>
+            </div>
+          </div>
         </div>
+      </div>
+
+      {/* Lower Row: Anchors and History */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 relative z-10">
+
+        {/* Safe Anchors */}
+        <div className="xl:col-span-1 bg-white/60 backdrop-blur-2xl rounded-[2.5rem] p-8 border border-white shadow-xl shadow-emerald-900/5">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-xl font-black text-stone-900 flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 shadow-inner">
+                <Shield className="w-5 h-5" />
+              </div>
+              Safe Anchors
+            </h2>
+          </div>
+
+          <div className="space-y-4">
+            {dashboardData ? dashboardData.anchors.map(anchor => (
+              <div key={anchor.id} className="p-4 rounded-2xl bg-white border border-stone-100 flex items-center justify-between hover:border-emerald-200 hover:shadow-md transition-all group cursor-pointer">
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm ${anchor.type === 'Hospital' ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-500'}`}>
+                    {anchor.type === 'Hospital' ? <Ambulance className="w-6 h-6" /> : <Shield className="w-6 h-6" />}
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-stone-900">{anchor.name}</h3>
+                    <p className="text-xs font-bold text-stone-400 mt-1">{anchor.distanceStr} • {anchor.statusStr}</p>
+                  </div>
+                </div>
+                <div className="w-10 h-10 rounded-full bg-stone-50 flex items-center justify-center text-stone-400 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors">
+                  <Navigation2 className="w-4 h-4" />
+                </div>
+              </div>
+            )) : <div className="animate-pulse h-16 bg-stone-100 rounded-2xl mt-4"></div>}
+          </div>
+        </div>
+
+        {/* Recent Checks - Clean List instead of Table */}
+        <div className="xl:col-span-2 bg-white/60 backdrop-blur-2xl rounded-[2.5rem] p-8 md:p-10 border border-white shadow-xl shadow-emerald-900/5 flex flex-col">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="text-xl font-black text-stone-900 flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-orange-50 text-orange-500 shadow-inner">
+                  <MapPin className="w-5 h-5" />
+                </div>
+                Recent Activity
+              </h2>
+              <p className="text-sm font-medium text-stone-500 mt-2">Your past checks and saved locations.</p>
+            </div>
+            <button className="px-5 py-2.5 rounded-xl bg-white border border-stone-200 text-xs font-bold text-stone-600 hover:bg-emerald-50 hover:text-emerald-700 transition-colors shadow-sm cursor-pointer hidden sm:block">
+              View All
+            </button>
+          </div>
+
+          <div className="space-y-3 flex-1 overflow-y-auto pr-2">
+            {dashboardData ? dashboardData.history.map((item: any) => (
+              <div key={item.id} className="p-5 rounded-2xl bg-white border border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:shadow-md hover:border-emerald-100 transition-all cursor-pointer group">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-stone-50 to-stone-100 border border-stone-100 flex items-center justify-center text-stone-400 group-hover:text-emerald-500 transition-colors shadow-sm">
+                    <MapPin className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-stone-900 text-lg">{item.location}</h3>
+                    <div className="flex items-center gap-2 text-xs font-bold text-stone-400 mt-1">
+                      <Calendar className="w-3.5 h-3.5" />
+                      {item.date}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between sm:justify-end gap-6 sm:w-1/3">
+                  <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-inner ${item.status === 'Verified Safe' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                    item.status === 'Caution Advised' ? 'bg-orange-50 text-orange-600 border-orange-100' :
+                      'bg-red-50 text-red-600 border-red-100'
+                    }`}>
+                    {item.status}
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-stone-300 group-hover:text-emerald-500 transition-colors hidden sm:block" />
+                </div>
+              </div>
+            )) : <div className="animate-pulse h-20 bg-stone-100 rounded-2xl mt-4"></div>}
+          </div>
+        </div>
+
       </div>
     </div>
   );

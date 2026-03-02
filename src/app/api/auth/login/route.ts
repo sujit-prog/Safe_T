@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { users } from "../_store";
+import { prisma } from "@/lib/prisma";
+import bcrypt from "bcrypt";
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,25 +13,46 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = users.get(email);
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
 
-    if (!user || user.password !== password) {
+    if (!user) {
       return NextResponse.json(
         { error: "Invalid email or password" },
         { status: 401 }
       );
     }
 
-    // ⚠️ still NOT secure, but fine for MVP
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401 }
+      );
+    }
+
     const token = crypto.randomUUID();
 
-    return NextResponse.json({
+    // ✅ CREATE RESPONSE OBJECT
+    const response = NextResponse.json({
       user: {
+        id: user.id,
         name: user.name,
         email: user.email,
       },
-      token,
     });
+
+    // ✅ SET COOKIE HERE
+    response.cookies.set("token", token, {
+      httpOnly: true,
+      path: "/",
+      sameSite: "lax",
+    });
+
+    return response;
+
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json(
