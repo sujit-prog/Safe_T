@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -25,7 +25,7 @@ const Map = dynamic<MapViewProps>(
     }
 );
 
-export default function MapPage() {
+function MapContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -189,5 +189,18 @@ export default function MapPage() {
 
             </div>
         </div>
+    );
+}
+
+export default function MapPage() {
+    return (
+        <Suspense fallback={
+            <div className="w-full h-screen flex flex-col items-center justify-center bg-stone-50">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-green-500 mb-4" />
+                <p className="text-stone-500 font-bold">Loading Map...</p>
+            </div>
+        }>
+            <MapContent />
+        </Suspense>
     );
 }
