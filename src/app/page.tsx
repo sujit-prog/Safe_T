@@ -33,9 +33,9 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-3xl">🛡️</span>
+              <span className="text-2xl"><img src="/favicon.ico" alt="" className="w-10 h-10" /></span>
               <h1 className="text-2xl font-bold text-green-800">
-                SafeT
+                SAfe_T
               </h1>
             </div>
             <div className="flex items-center gap-3">
@@ -200,11 +200,11 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Why SafeT */}
+      {/* Why SAfe_T */}
       <section className="bg-white py-16 border-y-2 border-green-100">
         <div className="container mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-3xl md:text-4xl font-bold mb-8 text-gray-900">Why Choose SafeT?</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-8 text-gray-900">Why Choose SAfe_T?</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
               <div className="flex gap-3">
@@ -256,7 +256,7 @@ export default function LandingPage() {
         <div className="max-w-3xl mx-auto bg-gradient-to-r from-green-600 to-green-500 rounded-3xl p-12 text-center text-white shadow-2xl">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to Feel Safer?</h2>
           <p className="text-xl text-green-50 mb-8">
-            Join thousands who trust SafeT for their safety needs
+            Join thousands who trust SAfe_T for their safety needs
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
@@ -284,8 +284,8 @@ export default function LandingPage() {
           <div className="max-w-4xl mx-auto">
             <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8">
               <div className="flex items-center gap-2">
-                <span className="text-3xl">🛡️</span>
-                <h3 className="text-white text-xl font-bold">SafeT</h3>
+                <span className="text-3xl"><img src="/favicon.ico" alt="" className="w-10 h-10" /></span>
+                <h3 className="text-white text-xl font-bold">SAfe_T</h3>
               </div>
 
               <div className="flex gap-6 text-sm">
@@ -297,7 +297,7 @@ export default function LandingPage() {
             </div>
 
             <div className="text-center text-sm border-t border-gray-800 pt-6">
-              <p>© 2026 SafeT. All rights reserved. Built with care for your safety.</p>
+              <p>© 2026 SAfe_T. All rights reserved. Built with care for your safety.</p>
               <p className="text-gray-500 mt-2">Powered by OpenStreetMap</p>
             </div>
           </div>

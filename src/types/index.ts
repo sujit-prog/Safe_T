@@ -1,4 +1,4 @@
-// Shared types for SafeT application
+// Shared types for SAfe_T application
 
 export interface EmergencyCenter {
   type: 'hospital' | 'police' | 'fire';

@@ -111,7 +111,7 @@ export default function MapView({ onLocationChange, emergencyCenters, userLocati
   const getCoordsFromAddress = async (addr: string) => {
     try {
       const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}&limit=1`, {
-        headers: { 'User-Agent': 'SafeT-Location-Tracker' }
+        headers: { 'User-Agent': 'SAfe_T-Location-Tracker' }
       });
       const data = await response.json();
       if (data && data.length > 0) {
@@ -321,7 +321,7 @@ export default function MapView({ onLocationChange, emergencyCenters, userLocati
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
         {
           headers: {
-            'User-Agent': 'SafeT-Location-Tracker' // Required by Nominatim
+            'User-Agent': 'SAfe_T-Location-Tracker' // Required by Nominatim
           }
         }
       );

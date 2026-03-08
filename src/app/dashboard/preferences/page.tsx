@@ -131,7 +131,7 @@ export default function PreferencesPage() {
                     <div className="flex-1 relative z-10 space-y-2">
                         <h2 className="text-2xl font-bold text-white">Privacy & Security Engine</h2>
                         <p className="text-emerald-100/80 font-medium max-w-xl">
-                            SafeT implements bank-grade encryption for all your location data. We never sell your personal information to third parties.
+                            SAfe_T implements bank-grade encryption for all your location data. We never sell your personal information to third parties.
                         </p>
                     </div>
 
