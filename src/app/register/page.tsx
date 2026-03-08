@@ -153,7 +153,7 @@ export default function SignupPage() {
             <div className="w-14 h-14 bg-green-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-green-200 transform -rotate-3 hover:rotate-0 transition-transform">
               <ShieldCheck className="w-8 h-8 text-white" />
             </div>
-            <h2 className="text-3xl font-extrabold text-stone-900 tracking-tight mb-2">Join SafeT</h2>
+            <h2 className="text-3xl font-extrabold text-stone-900 tracking-tight mb-2">Join SAfe_T</h2>
             <p className="text-stone-400 text-sm font-medium leading-relaxed">
               Experience the comfort of <br />
               <span className="text-green-600 font-serif italic text-lg">secure neighborhood living.</span>
@@ -260,7 +260,7 @@ export default function SignupPage() {
         {/* Footer Note */}
         <div className="mt-8 flex items-center justify-center gap-2 text-[10px] text-white/60 font-black tracking-[0.35em] uppercase drop-shadow-sm">
           <Heart className="w-3 h-3 text-green-400 fill-green-400" />
-          The SafeT Community
+          The SAfe_T Community
         </div>
       </div>
     </div>

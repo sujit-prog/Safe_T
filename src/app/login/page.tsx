@@ -244,7 +244,7 @@ export default function LoginPage() {
 
           <div className="mt-8 text-center border-t border-stone-50 pt-8">
             <p className="text-[10px] text-stone-400 font-black uppercase tracking-[0.15em]">
-              New to SafeT?{" "}
+              New to SAfe_T?{" "}
               <Link
                 href="/register"
                 className="text-green-600 hover:text-green-700 underline underline-offset-4 transition-colors font-black"
@@ -258,7 +258,7 @@ export default function LoginPage() {
         {/* Footer Note */}
         <div className="mt-8 flex items-center justify-center gap-2 text-[10px] text-white/60 font-black tracking-[0.35em] uppercase drop-shadow-sm">
           <Heart className="w-3 h-3 text-green-400 fill-green-400" />
-          The SafeT Community
+          The SAfe_T Community
         </div>
       </div>
     </div>
