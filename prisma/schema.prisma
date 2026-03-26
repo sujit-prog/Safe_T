@@ -15,8 +15,10 @@ model User {
   password  String
   createdAt DateTime @default(now())
 
-  checkHistory      CheckHistory[]
-  guardianConnections GuardianConnection[]
+  checkHistory            CheckHistory[]
+  guardianConnections     GuardianConnection[]
+  activeTrips             ActiveTrip[]
+  notificationSettings    UserNotificationSettings?
 }
 
 model CheckHistory {
@@ -56,4 +58,43 @@ model SafeAnchor {
   latitude    Float
   longitude   Float
   createdAt   DateTime @default(now())
+}
+
+model IncidentReport {
+  id          String   @id @default(uuid())
+  type        String   // e.g. "Accident", "Mugging", "Hazard", "Poor Lighting"
+  severity    Int      // 1-10 scale
+  description String?
+  latitude    Float
+  longitude   Float
+  createdAt   DateTime @default(now())
+}
+
+model ActiveTrip {
+  id             String    @id @default(uuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id])
+  startLocation  String
+  endLocation    String
+  startLat       Float
+  startLng       Float
+  endLat         Float
+  endLng         Float
+  currentLat     Float
+  currentLng     Float
+  status         String    @default("ACTIVE") // "ACTIVE", "COMPLETED", "SOS"
+  sosTriggerCount Int      @default(0)
+  lastPing       DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model UserNotificationSettings {
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id])
+  alertThreshold     String   @default("MEDIUM") // "LOW", "MEDIUM", "HIGH"
+  sosInactivitySecs  Int      @default(60)
+  nightModeEnabled   Boolean  @default(true)
+  updatedAt          DateTime @updatedAt
 }
