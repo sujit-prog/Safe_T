@@ -1,206 +1,267 @@
 "use client";
 
-import { useState, useEffect, Suspense } from 'react';
-import dynamic from 'next/dynamic';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect, Suspense, useCallback } from "react";
+import dynamic from "next/dynamic";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
-    MapPin,
-    Search,
-    Crosshair,
-    ShieldAlert,
-    Activity
+  MapPin, Search, Navigation, Shield, Zap, Route as RouteIcon,
+  ChevronRight, Clock, Ruler, ArrowLeft, AlertTriangle
 } from "lucide-react";
-import type { MapViewProps, SafetyResult } from '../../../types';
+import type { NavigationStep } from "../../components/NavigatorMap";
 
-const Map = dynamic<MapViewProps>(
-    () => import('../../components/MapView'),
-    {
-        ssr: false,
-        loading: () => (
-            <div className="w-full h-[600px] flex flex-col items-center justify-center bg-stone-50 rounded-3xl border border-stone-200">
-                <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-green-500 mb-4" />
-                <p className="text-stone-500 font-bold">Initializing Secure Environment Map...</p>
-            </div>
-        ),
-    }
+// Dynamically import the map (client-only, leaflet)
+const NavigatorMap = dynamic(
+  () => import("../../components/NavigatorMap"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-stone-50 rounded-[2.5rem]">
+        <div className="animate-spin rounded-full h-14 w-14 border-b-4 border-emerald-500 mb-4" />
+        <p className="text-stone-500 font-bold">Loading map…</p>
+      </div>
+    ),
+  }
 );
 
+const ROUTE_META: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+  Safest: { label: "Safest Route", color: "emerald", icon: <Shield className="w-4 h-4" /> },
+  Fastest: { label: "Fastest Route", color: "orange", icon: <Zap className="w-4 h-4" /> },
+  Balanced: { label: "Balanced Route", color: "blue", icon: <RouteIcon className="w-4 h-4" /> },
+};
+
 function MapContent() {
-    const router = useRouter();
-    const searchParams = useSearchParams();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-    // Check for query parameters passed from Route Planner
-    const initialDestination = searchParams.get('destination') || '';
-    const originParam = searchParams.get('origin') || '';
+  const destParam = searchParams.get("destination") || "";
+  const originParam = searchParams.get("origin") || "";
+  const routeType = (searchParams.get("routeType") || "Safest") as "Safest" | "Fastest" | "Balanced";
 
-    const [address, setAddress] = useState(initialDestination);
-    const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-    const [loading, setLoading] = useState(false);
+  const [origin, setOrigin] = useState(originParam);
+  const [destination, setDestination] = useState(destParam);
+  const [searchOrigin, setSearchOrigin] = useState(originParam);
+  const [searchDest, setSearchDest] = useState(destParam);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [selectedRouteType, setSelectedRouteType] = useState<"Safest" | "Fastest" | "Balanced">(routeType);
 
-    useEffect(() => {
-        // Check authentication
-        const userData = localStorage.getItem('safet_user');
-        if (!userData) {
-            router.push('/login');
-            return;
-        }
+  // Navigation state
+  const [navSteps, setNavSteps] = useState<NavigationStep[]>([]);
+  const [totalDist, setTotalDist] = useState("");
+  const [totalTime, setTotalTime] = useState("");
+  const [navStarted, setNavStarted] = useState(!!destParam);
+  const [currentStepIdx, setCurrentStepIdx] = useState(0);
 
-        // Try to get user location
-        if ("geolocation" in navigator) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    setUserLocation({
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude
-                    });
-                },
-                (error) => console.log("Geolocation error:", error)
-            );
-        }
-    }, [router]);
+  const meta = ROUTE_META[selectedRouteType];
 
-    const handleLocationChange = (lat: number, lng: number, updatedAddress: string) => {
-        setAddress(updatedAddress);
-    };
+  useEffect(() => {
+    const userData = localStorage.getItem("safet_user");
+    if (!userData) { router.push("/login"); return; }
 
-    const handleSearch = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!address.trim()) return;
-        setLoading(true);
-        // Simulate check API call
-        setTimeout(() => {
-            setLoading(false);
-            if (originParam) {
-                alert(`Safe Route Simulated: Navigating from ${originParam} to ${address}`);
-            } else {
-                alert(`Safety check simulated for: ${address}`);
-            }
-        }, 1500);
-    };
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {}
+      );
+    }
+  }, [router]);
 
-    return (
-        <div className="max-w-7xl mx-auto space-y-8">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white/70 backdrop-blur-md rounded-[2.5rem] p-10 border border-green-50 shadow-xl shadow-green-900/5">
-                <div>
-                    <div className="flex items-center gap-4 mb-2">
-                        <div className="w-12 h-12 bg-green-500 rounded-2xl flex items-center justify-center shadow-lg shadow-green-100 text-white">
-                            <MapPin className="w-6 h-6" />
-                        </div>
-                        <h1 className="text-3xl font-extrabold text-stone-900 tracking-tight">Live Environmental Map</h1>
-                    </div>
-                    <p className="text-stone-400 font-medium max-w-lg mt-2">
-                        Explore community safety metrics, incident reports, and local zones directly on our interactive map.
-                    </p>
-                </div>
+  const handleRouteLoaded = useCallback((
+    steps: NavigationStep[], dist: string, time: string
+  ) => {
+    setNavSteps(steps);
+    setTotalDist(dist);
+    setTotalTime(time);
+    setCurrentStepIdx(0);
+  }, []);
 
-                {/* Global Search within Map page */}
-                <form onSubmit={handleSearch} className="flex-1 max-w-md relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <Search className="h-5 w-5 text-stone-400" />
-                    </div>
-                    <input
-                        type="text"
-                        className="block w-full pl-12 pr-12 py-4 bg-white border border-stone-200 rounded-2xl text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent font-bold transition-all shadow-sm"
-                        placeholder="Search neighborhood or zip code..."
-                        value={address}
-                        onChange={(e) => setAddress(e.target.value)}
-                    />
-                    <button
-                        type="button"
-                        className="absolute inset-y-0 right-2 flex items-center px-3 hover:text-green-500 text-stone-400 transition-colors"
-                        onClick={() => {
-                            if (userLocation) {
-                                // Trigger map recenter to user
-                            }
-                        }}
-                    >
-                        <Crosshair className="h-5 w-5" />
-                    </button>
-                </form>
-            </div>
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchDest.trim()) return;
+    setOrigin(searchOrigin);
+    setDestination(searchDest);
+    setNavStarted(true);
+  };
 
-            <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
+  const handleRouteTypeChange = (type: "Safest" | "Fastest" | "Balanced") => {
+    setSelectedRouteType(type);
+  };
 
-                {/* Sidebar Info/Filters for Map */}
-                <div className="xl:col-span-1 space-y-6">
-                    <div className="bg-emerald-900 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-green-400/10 blur-3xl rounded-full"></div>
-                        <h2 className="text-xl font-bold mb-6 flex items-center gap-2 relative z-10">
-                            <ShieldAlert className="w-5 h-5 text-green-400" />
-                            Active Zones
-                        </h2>
-                        <div className="space-y-4 relative z-10">
-                            <label className="flex items-center gap-3 p-3 bg-white/10 rounded-xl cursor-pointer hover:bg-white/20 transition-colors">
-                                <input type="checkbox" defaultChecked className="w-5 h-5 rounded text-green-500 bg-emerald-800 border-none focus:ring-2 focus:ring-green-500 focus:ring-offset-emerald-900" />
-                                <span className="font-bold text-sm">Safe Anchors (24/7 Spots)</span>
-                            </label>
-                            <label className="flex items-center gap-3 p-3 bg-white/10 rounded-xl cursor-pointer hover:bg-white/20 transition-colors">
-                                <input type="checkbox" defaultChecked className="w-5 h-5 rounded text-green-500 bg-emerald-800 border-none focus:ring-2 focus:ring-green-500 focus:ring-offset-emerald-900" />
-                                <span className="font-bold text-sm">Guardian Verified Reports</span>
-                            </label>
-                            <label className="flex items-center gap-3 p-3 bg-white/10 rounded-xl cursor-pointer hover:bg-white/20 transition-colors">
-                                <input type="checkbox" className="w-5 h-5 rounded text-red-500 bg-emerald-800 border-none focus:ring-2 focus:ring-red-500 focus:ring-offset-emerald-900" />
-                                <span className="font-bold text-sm text-stone-300">Night-time Multiplier Preview</span>
-                            </label>
-                        </div>
-                    </div>
+  const colorClass = {
+    emerald: { bg: "bg-emerald-500", text: "text-emerald-600", light: "bg-emerald-50 text-emerald-700 border-emerald-100" },
+    orange: { bg: "bg-orange-500", text: "text-orange-600", light: "bg-orange-50 text-orange-700 border-orange-100" },
+    blue: { bg: "bg-blue-500", text: "text-blue-600", light: "bg-blue-50 text-blue-700 border-blue-100" },
+  }[meta.color as "emerald" | "orange" | "blue"];
 
-                    <div className="bg-white/70 backdrop-blur-md rounded-[2.5rem] p-8 border border-green-50 shadow-xl shadow-green-900/5">
-                        <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-stone-900">
-                            <Activity className="w-5 h-5 text-green-500" />
-                            Guardian Status
-                        </h2>
-                        {loading ? (
-                            <div className="flex items-center gap-3 text-stone-500 font-bold text-sm">
-                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-500" />
-                                Scanning region...
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                <p className="text-sm font-medium text-stone-400">Live feeds are active. Connection is secure.</p>
-                                <div className="flex items-center gap-2 text-green-600 font-bold text-sm bg-green-50 p-3 rounded-xl">
-                                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                                    System Online
-                                </div>
-                            </div>
-                        )}
+  return (
+    <div className="flex flex-col xl:flex-row gap-0 h-[calc(100vh-3rem)] max-h-[900px] rounded-[2.5rem] overflow-hidden shadow-2xl border border-white bg-white/60 backdrop-blur-xl">
 
-                        <button className="w-full mt-6 py-4 bg-green-500 hover:bg-green-600 text-white rounded-2xl font-bold text-sm transition-all shadow-lg shadow-green-100 flex items-center justify-center gap-2">
-                            <Crosshair className="w-4 h-4" />
-                            Record Quick Audit
-                        </button>
-                    </div>
-                </div>
+      {/* ── Left Panel: Navigation HUD ──────────────────────────────── */}
+      <div className="xl:w-[340px] flex-shrink-0 flex flex-col bg-white/80 backdrop-blur-xl border-r border-stone-100 overflow-hidden">
 
-                {/* Map Container */}
-                <div className="xl:col-span-3 bg-white/80 backdrop-blur-xl rounded-[3rem] p-4 border border-green-50 shadow-2xl shadow-green-900/5 relative overflow-hidden flex flex-col items-center">
-                    <div className="w-full h-[600px] sm:h-[700px] overflow-hidden rounded-[2.5rem] relative isolate mix-blend-multiply">
-                        {/* 
-              Note: Using mix-blend-multiply here because Leaflet/Mapbox can have stark whites. 
-              Adjusting opacity or blend mode keeps it embedded perfectly into the beautiful UI. 
-            */}
-                        <Map
-                            onLocationChange={handleLocationChange}
-                            userLocation={userLocation}
-                        />
-                    </div>
-                </div>
-
-            </div>
+        {/* Header */}
+        <div className="p-6 border-b border-stone-100">
+          <button onClick={() => router.back()} className="flex items-center gap-2 text-stone-400 hover:text-stone-700 font-bold text-sm mb-4 transition-colors">
+            <ArrowLeft className="w-4 h-4" /> Back to Dashboard
+          </button>
+          <h1 className="text-2xl font-black text-stone-900 flex items-center gap-2">
+            <Navigation className="w-6 h-6 text-emerald-500" />
+            Navigator
+          </h1>
+          <p className="text-stone-400 text-sm font-medium mt-1">Real-time safe route guidance</p>
         </div>
-    );
+
+        {/* Search */}
+        <form onSubmit={handleSearch} className="p-4 border-b border-stone-100 space-y-3">
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <div className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-4 ring-blue-500/20" />
+            </div>
+            <input
+              value={searchOrigin}
+              onChange={e => setSearchOrigin(e.target.value)}
+              className="w-full pl-12 pr-3 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm font-bold text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 placeholder:text-stone-400"
+              placeholder="From (your location)"
+            />
+          </div>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+              <MapPin className="w-4 h-4 text-red-500" />
+            </div>
+            <input
+              value={searchDest}
+              onChange={e => setSearchDest(e.target.value)}
+              className="w-full pl-12 pr-3 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm font-bold text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 placeholder:text-stone-400"
+              placeholder="To (destination)"
+            />
+          </div>
+
+          {/* Route type selector */}
+          <div className="flex gap-2">
+            {(["Safest", "Fastest", "Balanced"] as const).map(t => (
+              <button key={t} type="button" onClick={() => handleRouteTypeChange(t)}
+                className={`flex-1 py-2 rounded-xl text-xs font-black transition-all border ${
+                  selectedRouteType === t
+                    ? t === "Safest" ? "bg-emerald-500 text-white border-emerald-600"
+                      : t === "Fastest" ? "bg-orange-500 text-white border-orange-600"
+                      : "bg-blue-500 text-white border-blue-600"
+                    : "bg-white text-stone-500 border-stone-200 hover:border-stone-300"
+                }`}>
+                {t === "Safest" ? "🛡 " : t === "Fastest" ? "⚡ " : "⚖ "}{t}
+              </button>
+            ))}
+          </div>
+
+          <button type="submit"
+            className="w-full py-3 rounded-xl bg-stone-900 hover:bg-emerald-600 text-white font-black text-sm transition-colors flex items-center justify-center gap-2"
+          >
+            <Search className="w-4 h-4" /> Get Route
+          </button>
+        </form>
+
+        {/* Route summary */}
+        {navStarted && totalDist && (
+          <div className="p-4 border-b border-stone-100">
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-black border ${colorClass.light} mb-3`}>
+              {meta.icon} {meta.label}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-stone-50 rounded-xl p-3 text-center">
+                <Clock className="w-4 h-4 text-stone-400 mx-auto mb-1" />
+                <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">Time</p>
+                <p className="text-lg font-black text-stone-900">{totalTime}</p>
+              </div>
+              <div className="bg-stone-50 rounded-xl p-3 text-center">
+                <Ruler className="w-4 h-4 text-stone-400 mx-auto mb-1" />
+                <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">Dist</p>
+                <p className="text-lg font-black text-stone-900">{totalDist}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Turn-by-turn steps */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {navStarted && navSteps.length > 0 ? (
+            <>
+              <p className="text-xs font-black text-stone-400 uppercase tracking-widest mb-3 px-1">
+                Turn-by-Turn Directions
+              </p>
+              {navSteps.map((step, i) => (
+                <button key={i} onClick={() => setCurrentStepIdx(i)}
+                  className={`w-full text-left p-3 rounded-xl transition-all border flex items-start gap-3 ${
+                    i === currentStepIdx
+                      ? "bg-emerald-50 border-emerald-200 shadow-sm"
+                      : "bg-white border-stone-100 hover:border-stone-200"
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-base font-black ${
+                    i === currentStepIdx ? "bg-emerald-500 text-white" : "bg-stone-100 text-stone-500"
+                  }`}>
+                    {step.maneuver.includes("left") ? "↰" :
+                      step.maneuver.includes("right") ? "↱" :
+                      step.maneuver.includes("arrive") ? "📍" : "↑"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-bold truncate capitalize ${i === currentStepIdx ? "text-emerald-800" : "text-stone-700"}`}>
+                      {step.instruction || step.maneuver}
+                    </p>
+                    <p className="text-xs font-medium text-stone-400 mt-0.5">{step.distance}</p>
+                  </div>
+                  {i === currentStepIdx && <ChevronRight className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-1" />}
+                </button>
+              ))}
+            </>
+          ) : navStarted ? (
+            <div className="flex flex-col items-center justify-center h-40 gap-3">
+              <div className="animate-spin w-8 h-8 border-2 border-emerald-200 border-t-emerald-600 rounded-full" />
+              <p className="text-stone-400 font-bold text-sm">Calculating route…</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-40 gap-3 text-center px-4">
+              <Navigation className="w-10 h-10 text-stone-200" />
+              <p className="text-stone-400 font-bold text-sm">Enter a destination to start navigation.</p>
+              <p className="text-stone-300 text-xs">The route will appear on the map with safety color coding.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Safety notice */}
+        <div className="p-4 border-t border-stone-100">
+          <div className="flex items-start gap-2 bg-orange-50 border border-orange-100 rounded-xl p-3">
+            <AlertTriangle className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
+            <p className="text-xs font-medium text-orange-700">
+              Route colors show estimated safety scores. Always stay aware of your surroundings.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Right Panel: Map ─────────────────────────────────────────── */}
+      <div className="flex-1 relative min-h-[400px]">
+        <NavigatorMap
+          userLocation={userLocation}
+          origin={navStarted ? origin : undefined}
+          destination={navStarted ? destination : undefined}
+          routeType={selectedRouteType}
+          onRouteLoaded={handleRouteLoaded}
+          onLocationChange={(lat, lng, addr) => {
+            // optional: fill dest field on map click
+          }}
+        />
+      </div>
+    </div>
+  );
 }
 
 export default function MapPage() {
-    return (
-        <Suspense fallback={
-            <div className="w-full h-screen flex flex-col items-center justify-center bg-stone-50">
-                <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-green-500 mb-4" />
-                <p className="text-stone-500 font-bold">Loading Map...</p>
-            </div>
-        }>
-            <MapContent />
-        </Suspense>
-    );
+  return (
+    <Suspense fallback={
+      <div className="w-full h-screen flex flex-col items-center justify-center">
+        <div className="animate-spin rounded-full h-14 w-14 border-b-4 border-emerald-500 mb-4" />
+        <p className="text-stone-500 font-bold">Loading Navigator…</p>
+      </div>
+    }>
+      <MapContent />
+    </Suspense>
+  );
 }
