@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import 'leaflet-routing-machine';
 
 export interface RouteSegment {
   coords: [number, number][];
@@ -109,10 +108,12 @@ export default function NavigatorMap({
   const routeLayerRef = useRef<L.LayerGroup | null>(null);
   const originMarkerRef = useRef<L.Marker | null>(null);
   const destMarkerRef = useRef<L.Marker | null>(null);
-  const routingControlRef = useRef<any>(null);
 
   const [mapReady, setMapReady] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [routeSteps, setRouteSteps] = useState<NavigationStep[]>([]);
+  const [showSteps, setShowSteps] = useState(true);
 
   // ── init map ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -188,27 +189,23 @@ export default function NavigatorMap({
   ) => {
     if (!mapInstanceRef.current || !routeLayerRef.current) return;
     setLoading(true);
+    setRouteSteps([]);
     routeLayerRef.current.clearLayers();
     originMarkerRef.current?.remove();
     destMarkerRef.current?.remove();
-    if (routingControlRef.current) {
-      mapInstanceRef.current.removeControl(routingControlRef.current);
-      routingControlRef.current = null;
-    }
 
-    const [fromCoord, toCoord] = await Promise.all([geocode(originQ), geocode(destQ)]);
-    if (!fromCoord || !toCoord) {
-      setLoading(false);
-      alert(`Could not find location for: ${!fromCoord ? originQ : destQ}. Try a more specific location name.`);
-      return;
-    }
+    try {
+      const [fromCoord, toCoord] = await Promise.all([geocode(originQ), geocode(destQ)]);
+      if (!fromCoord || !toCoord) {
+        alert(`Could not find location for: ${!fromCoord ? originQ : destQ}. Try a more specific location name.`);
+        return;
+      }
 
-    const routes = await fetchOSRM(fromCoord, toCoord, true);
-    if (!routes.length) {
-      setLoading(false);
-      alert('Could not calculate a route between these locations.');
-      return;
-    }
+      const routes = await fetchOSRM(fromCoord, toCoord, true);
+      if (!routes.length) {
+        alert('Could not calculate a route between these locations.');
+        return;
+      }
 
     // Pick correct OSRM route index based on type
     let routeIdx = 0;
@@ -298,25 +295,6 @@ export default function NavigatorMap({
       .addTo(routeLayerRef.current!)
       .bindPopup(`<b>📍 Destination:</b> ${destQ}`);
 
-    // Add Leaflet Routing Machine control (for on-map UI)
-    // @ts-ignore
-    routingControlRef.current = L.Routing.control({
-      waypoints: [
-        L.latLng(fromCoord[0], fromCoord[1]),
-        L.latLng(toCoord[0], toCoord[1])
-      ],
-      routeWhileDragging: false,
-      addWaypoints: false,
-      show: false,
-      collapsible: true,
-      lineOptions: { 
-        styles: [{ opacity: 0 }],
-        extendToWaypoints: true,
-        missingRouteTolerance: 10
-      }, // Hide LRM line to use our custom colored one
-      createMarker: () => null // Hide LRM markers
-    }).addTo(mapInstanceRef.current);
-
     // Fit bounds
     const bounds = L.latLngBounds([fromCoord, toCoord]);
     mapInstanceRef.current.fitBounds(bounds, { padding: [60, 60] });
@@ -335,12 +313,19 @@ export default function NavigatorMap({
       }
     }
 
-    onRouteLoaded?.(
-      steps,
-      fmtDist(route.distance),
-      fmtTime(route.duration)
-    );
-    setLoading(false);
+      setRouteSteps(steps);
+      setShowSteps(true);
+      onRouteLoaded?.(
+        steps,
+        fmtDist(route.distance),
+        fmtTime(route.duration)
+      );
+    } catch (err) {
+      console.error('Error drawing route:', err);
+      alert('An error occurred while calculating the route. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   }, [onRouteLoaded]);
 
   const reverseGeocode = useCallback(async (lat: number, lng: number) => {
@@ -362,119 +347,68 @@ export default function NavigatorMap({
     }
   }, [userLocation]);
 
+  const toggleFullscreen = useCallback(() => {
+    setIsFullscreen(prev => !prev);
+  }, []);
+
+  useEffect(() => {
+    if (mapInstanceRef.current) {
+      setTimeout(() => mapInstanceRef.current?.invalidateSize(), 350);
+    }
+  }, [isFullscreen]);
+
   return (
-    <div className="relative w-full h-full">
-      {/* Ping animation & Custom Leaflet Routing Styles */}
+    <div className={`transition-all duration-300 ${isFullscreen ? 'fixed inset-0 z-[9999] bg-stone-50' : 'relative w-full h-full'}`}>
+      {/* Ping animation */}
       <style>{`
         @keyframes ping {
           0% { transform: scale(1); opacity: 0.8; }
           100% { transform: scale(3); opacity: 0; }
         }
-        
-        /* Beautify Leaflet Routing Machine Panel */
-        .leaflet-routing-container {
-          background: rgba(255, 255, 255, 0.85) !important;
-          backdrop-filter: blur(16px) !important;
-          border-radius: 24px !important;
-          box-shadow: 0 10px 40px -10px rgba(0,0,0,0.15), 0 0 0 1px rgba(16, 185, 129, 0.2) !important;
-          padding: 16px !important;
-          margin-top: 20px !important;
-          margin-right: 20px !important;
-          font-family: inherit !important;
-          max-height: 50vh !important;
-          overflow-y: auto !important;
-          transition: all 0.3s ease !important;
-        }
-        
-        .leaflet-routing-container::-webkit-scrollbar {
-          width: 6px;
-        }
-        .leaflet-routing-container::-webkit-scrollbar-thumb {
-          background: rgba(16, 185, 129, 0.4);
-          border-radius: 10px;
-        }
-        
-        .leaflet-routing-alt {
-          max-height: none !important;
-        }
-        
-        .leaflet-routing-alt h2 {
-          font-size: 16px !important;
-          font-weight: 900 !important;
-          color: #064e3b !important;
-          margin-top: 0 !important;
-          margin-bottom: 12px !important;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        
-        .leaflet-routing-alt h3 {
-          font-size: 12px !important;
-          font-weight: 800 !important;
-          color: #10b981 !important;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          margin-bottom: 16px !important;
-        }
-        
-        .leaflet-routing-alt table {
-          border-collapse: separate !important;
-          border-spacing: 0 8px !important;
-        }
-        
-        .leaflet-routing-alt tr:hover {
-          background: rgba(16, 185, 129, 0.05) !important;
-          border-radius: 12px !important;
-        }
-        
-        .leaflet-routing-alt td {
-          padding: 8px !important;
-          font-size: 13px !important;
-          font-weight: 600 !important;
-          color: #44403c !important;
-          border-bottom: 1px solid rgba(0,0,0,0.03) !important;
-        }
-        
-        /* Style the collapse button nicely */
-        .leaflet-routing-collapse-btn {
-          right: 20px !important;
-          top: 20px !important;
-          color: #10b981 !important;
-          font-size: 24px !important;
-          font-weight: bold;
-          text-decoration: none !important;
-          z-index: 1000 !important;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        /* Create a better looking collapsed state button */
-        .leaflet-routing-container-hide {
-          width: 48px !important;
-          height: 48px !important;
-          min-height: 48px !important;
-          padding: 0 !important;
-          display: flex !important;
-          align-items: center;
-          justify-content: center;
-          background: rgba(255, 255, 255, 0.95) !important;
-          border-radius: 50% !important;
-          cursor: pointer;
-        }
-
-        .leaflet-routing-container-hide .leaflet-routing-collapse-btn::after {
-          content: "🗺️";
-          font-size: 20px;
-        }
-        
-        .leaflet-routing-container-hide .leaflet-routing-collapse-btn {
-          position: static !important;
-          width: 100%;
-          height: 100%;
-        }
       `}</style>
+
+      {/* Native React Turn-by-Turn Panel */}
+      {routeSteps.length > 0 && (
+        <div className={`absolute top-4 right-4 z-[1000] transition-all duration-300 ${showSteps ? 'w-80' : 'w-12 h-12'}`}>
+          {!showSteps ? (
+            <button
+              onClick={() => setShowSteps(true)}
+              className="w-full h-full bg-white/95 backdrop-blur shadow-lg border border-emerald-100 rounded-[1.5rem] flex items-center justify-center hover:bg-emerald-50 text-xl"
+              title="Show Route Steps"
+            >
+              🗺️
+            </button>
+          ) : (
+            <div className="bg-white/95 backdrop-blur-md shadow-2xl border border-emerald-200 rounded-[1.5rem] overflow-hidden flex flex-col max-h-[60vh]">
+              <div className="p-4 bg-emerald-50/50 border-b border-emerald-100 flex justify-between items-center sticky top-0 z-10">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🗺️</span>
+                  <h2 className="font-black text-emerald-900 text-sm tracking-wide">ROUTE STEPS</h2>
+                </div>
+                <button
+                  onClick={() => setShowSteps(false)}
+                  className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-emerald-600 hover:bg-emerald-100 font-bold transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="overflow-y-auto p-2 space-y-1 custom-scrollbar">
+                {routeSteps.map((step, idx) => (
+                  <div key={idx} className="flex gap-3 p-3 hover:bg-emerald-50/50 rounded-xl transition-colors items-center border border-transparent hover:border-emerald-100">
+                    <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-lg shrink-0">
+                      {maneuverIcon(step.maneuver)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-stone-700 truncate" title={step.instruction}>{step.instruction}</p>
+                      <p className="text-xs font-semibold text-emerald-600">{step.distance}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Loading overlay */}
       {loading && (
@@ -490,11 +424,21 @@ export default function NavigatorMap({
       {userLocation && (
         <button
           onClick={recenterOnUser}
-          className="absolute top-4 right-4 z-[1000] bg-white shadow-lg rounded-2xl px-4 py-2.5 flex items-center gap-2 font-bold text-sm text-stone-700 hover:bg-emerald-50 hover:text-emerald-600 transition-all border border-stone-100"
+          className="absolute top-16 left-4 z-[1000] bg-white shadow-lg rounded-2xl p-2.5 w-11 h-11 flex items-center justify-center font-bold text-lg text-stone-700 hover:bg-emerald-50 hover:text-emerald-600 transition-all border border-stone-100"
+          title="My Location"
         >
-          🎯 My Location
+          🎯
         </button>
       )}
+
+      {/* Fullscreen button */}
+      <button
+        onClick={() => setIsFullscreen(!isFullscreen)}
+        className="absolute top-4 left-4 z-[1000] bg-white shadow-lg rounded-2xl p-2.5 flex items-center justify-center font-bold text-stone-700 hover:bg-emerald-50 hover:text-emerald-600 transition-all border border-stone-100"
+        title="Toggle Fullscreen"
+      >
+        {isFullscreen ? '↙️' : '⛶'}
+      </button>
 
       {/* Map legend */}
       <div className="absolute bottom-4 left-4 z-[1000] bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg px-4 py-3 border border-stone-100">
