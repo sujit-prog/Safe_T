@@ -33,8 +33,8 @@ export async function POST(req: Request) {
     console.log(`Current Location: Lat ${lat ?? "Unknown"}, Lng ${lng ?? "Unknown"}`);
     console.log(`Dispatched real-time alerts to ${guardians.length} contacts:`);
     for (const g of guardians) {
-      const mockPhone = "+91 98765 " + Math.floor(10000 + Math.random() * 90000);
-      console.log(`  ✉️  SMS Sent to ${g.guardianName} (${mockPhone})`);
+      const phone = g.phoneNumber || "+91 (Not Provided)";
+      console.log(`  ✉️  SMS Sent to ${g.guardianName} (${phone})`);
       console.log(`     Content: "ALERT! ${userName} has triggered SOS near ${lat?.toFixed(4) ?? '?'}, ${lng?.toFixed(4) ?? '?'}. Track live: http://safe-t.app/tracking/${trip.id}"`);
     }
     console.log(`🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨\n`);

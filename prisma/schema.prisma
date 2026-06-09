@@ -45,7 +45,8 @@ model GuardianConnection {
   userId         String
   user           User     @relation(fields: [userId], references: [id])
   guardianName   String
-  guardianStatus String   // "Online", "Offline"
+  phoneNumber    String   @default("")
+  guardianStatus String   @default("Offline") // "Online", "Offline"
   createdAt      DateTime @default(now())
 }
 

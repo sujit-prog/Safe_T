@@ -2,16 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import React, { useState, ChangeEvent, FormEvent, useEffect } from "react";
-import {
-  ShieldCheck,
-  Lock,
-  Mail,
-  User,
-  ArrowLeft,
-  ChevronRight,
-  Heart,
-  CheckCircle2
-} from "lucide-react";
+import { Lock, Mail, User, Shield, CheckCircle2, ChevronRight, MapPin } from "lucide-react";
 import Link from "next/link";
 
 interface SignupFormData {
@@ -19,18 +10,6 @@ interface SignupFormData {
   email: string;
   password: string;
 }
-
-interface PageConfig {
-  backgroundImage: string;
-  backgroundOverlayOpacity: string;
-  accentTint: string;
-}
-
-const PAGE_CONFIG: PageConfig = {
-  backgroundImage: "https://res.cloudinary.com/dhigdp9hk/image/upload/v1770899597/article_1_1_como6d.webp",
-  backgroundOverlayOpacity: "bg-black/45",
-  accentTint: "bg-green-900/15"
-};
 
 export default function SignupPage() {
   const router = useRouter();
@@ -65,9 +44,7 @@ export default function SignupPage() {
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: formData.fullName,
           email: formData.email,
@@ -101,27 +78,19 @@ export default function SignupPage() {
 
   if (isSubmitted) {
     return (
-      <div className="relative flex min-h-screen items-center justify-center px-6 overflow-hidden">
-        <div
-          className="absolute inset-0 bg-cover bg-center scale-110 blur-2xl transition-all duration-1000"
-          style={{ backgroundImage: `url(${PAGE_CONFIG.backgroundImage})` }}
-        />
-        <div className={`absolute inset-0 ${PAGE_CONFIG.backgroundOverlayOpacity} backdrop-blur-sm`} />
-
-        <div className="relative w-full max-w-md bg-white/95 backdrop-blur-xl p-12 rounded-[3rem] border border-white/20 shadow-2xl text-center animate-in fade-in zoom-in duration-500">
-          <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-200">
-            <CheckCircle2 className="w-10 h-10 text-white" />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="max-w-sm w-full bg-white p-8 rounded-2xl border border-gray-200 shadow-sm text-center">
+          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle2 className="w-8 h-8 text-emerald-600" />
           </div>
-          <h2 className="text-3xl font-extrabold text-stone-900 mb-4 tracking-tight">Welcome Home</h2>
-          <p className="text-stone-600 mb-8 leading-relaxed">
-            Your neighborhood is waiting, <span className="text-green-600 font-bold">{formData.fullName.split(' ')[0] || "Friend"}</span>. Your account is ready.
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Account Created</h2>
+          <p className="text-gray-500 mb-8">
+            Welcome to SAfe_T, {formData.fullName.split(' ')[0]}. Preparing your dashboard...
           </p>
-          <div className="flex justify-center">
-            <div className="flex gap-1.5">
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-bounce"></span>
-            </div>
+          <div className="flex justify-center gap-2">
+            <div className="w-2 h-2 bg-emerald-600 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+            <div className="w-2 h-2 bg-emerald-600 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+            <div className="w-2 h-2 bg-emerald-600 rounded-full animate-bounce"></div>
           </div>
         </div>
       </div>
@@ -129,138 +98,151 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center px-6 font-sans text-stone-800 py-12 overflow-x-hidden">
-      <div
-        className="absolute inset-0 bg-cover bg-center transition-transform duration-[15s] hover:scale-110 blur-[4px]"
-        style={{ backgroundImage: `url(${PAGE_CONFIG.backgroundImage})` }}
-      />
-
-      <div className={`absolute inset-0 ${PAGE_CONFIG.backgroundOverlayOpacity} ${PAGE_CONFIG.accentTint}`} />
-      <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-transparent to-stone-900/30" />
-
-      <div className="relative w-full max-w-md z-10">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-white/80 hover:text-white transition-colors mb-8 font-bold text-xs uppercase tracking-[0.25em] group drop-shadow-md"
-        >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          Return Home
-        </Link>
-
-        <div className="bg-white/98 backdrop-blur-md p-10 md:p-12 rounded-[3.5rem] border border-white shadow-[0_32px_64px_-16px_rgba(0,0,0,0.4)] relative overflow-hidden">
-
-          <div className="text-center mb-10">
-            <div className="w-14 h-14 bg-green-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-green-200 transform -rotate-3 hover:rotate-0 transition-transform">
-              <ShieldCheck className="w-8 h-8 text-white" />
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Left Column - Form */}
+      <div className="flex-1 flex items-center justify-center p-8 sm:p-12 lg:p-16">
+        <div className="max-w-md w-full">
+          <Link href="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 mb-8 font-medium text-sm transition-colors">
+            <div className="w-8 h-8 bg-white border border-gray-200 rounded-lg flex items-center justify-center">
+              <Shield className="w-4 h-4 text-emerald-600" />
             </div>
-            <h2 className="text-3xl font-extrabold text-stone-900 tracking-tight mb-2">Join SAfe_T</h2>
-            <p className="text-stone-400 text-sm font-medium leading-relaxed">
-              Experience the comfort of <br />
-              <span className="text-green-600 font-serif italic text-lg">secure neighborhood living.</span>
+            Back to Home
+          </Link>
+
+          <div className="bg-white p-8 sm:p-10 rounded-2xl border border-gray-200 shadow-sm">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Create an account</h1>
+            <p className="text-gray-500 text-sm mb-8">
+              Join SAfe_T to access real-time safety data and intelligent routing.
             </p>
-          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Full Name */}
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-black text-stone-400 uppercase tracking-[0.2em] ml-4">
-                Full Name
-              </label>
-              <div className="relative group">
-                <div className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-green-500 transition-colors">
-                  <User className="w-4 h-4" />
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Full Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Full Name
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="w-4 h-4 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    name="fullName"
+                    autoComplete="name"
+                    required
+                    value={formData.fullName}
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                    placeholder="John Doe"
+                  />
                 </div>
-                <input
-                  type="text"
-                  name="fullName"
-                  autoComplete="name"
-                  className="w-full bg-stone-50 border border-transparent rounded-full pl-12 pr-6 py-3.5 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 focus:bg-white transition-all placeholder:text-stone-300 text-sm"
-                  placeholder="John Doe"
-                  value={formData.fullName}
-                  onChange={handleChange}
-                  required
-                />
               </div>
-            </div>
 
-            {/* Email */}
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-black text-stone-400 uppercase tracking-[0.2em] ml-4">
-                Email Address
-              </label>
-              <div className="relative group">
-                <div className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-green-500 transition-colors">
-                  <Mail className="w-4 h-4" />
+              {/* Email */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="w-4 h-4 text-gray-400" />
+                  </div>
+                  <input
+                    type="email"
+                    name="email"
+                    autoComplete="email"
+                    required
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                    placeholder="name@example.com"
+                  />
                 </div>
-                <input
-                  type="email"
-                  name="email"
-                  autoComplete="email"
-                  className="w-full bg-stone-50 border border-transparent rounded-full pl-12 pr-6 py-3.5 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 focus:bg-white transition-all placeholder:text-stone-300 text-sm"
-                  placeholder="name@example.com"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                />
               </div>
-            </div>
 
-            {/* Password */}
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-black text-stone-400 uppercase tracking-[0.2em] ml-4">
-                Password
-              </label>
-              <div className="relative group">
-                <div className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-green-500 transition-colors">
-                  <Lock className="w-4 h-4" />
+              {/* Password */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Password
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Lock className="w-4 h-4 text-gray-400" />
+                  </div>
+                  <input
+                    type="password"
+                    name="password"
+                    autoComplete="new-password"
+                    required
+                    value={formData.password}
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                    placeholder="••••••••"
+                  />
                 </div>
-                <input
-                  type="password"
-                  name="password"
-                  autoComplete="new-password"
-                  className="w-full bg-stone-50 border border-transparent rounded-full pl-12 pr-6 py-3.5 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 focus:bg-white transition-all placeholder:text-stone-300 text-sm"
-                  placeholder="••••••••"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                />
               </div>
-            </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-green-500 text-white py-[18px] rounded-full font-bold text-lg hover:bg-green-600 transition-all flex items-center justify-center gap-2 group mt-6 disabled:opacity-70"
-            >
-              {loading ? "Creating account..." : "Sign Up"}
-              {!loading && (
-                <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              )}
-            </button>
-          </form>
-          {error && (
-            <p className="text-red-500 text-sm text-center mt-4 font-bold">
-              {error}
-            </p>
-          )}
-
-          <div className="mt-8 text-center border-t border-stone-50 pt-8">
-            <p className="text-[10px] text-stone-400 font-black uppercase tracking-[0.15em]">
-              Already joined?{" "}
-              <Link
-                href="/login"
-                className="text-green-600 hover:text-green-700 underline underline-offset-4 transition-colors font-black"
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-2 mt-6 disabled:opacity-70"
               >
-                Log In
-              </Link>
-            </p>
+                {loading ? "Creating account..." : "Create account"}
+                {!loading && <ChevronRight className="w-4 h-4" />}
+              </button>
+            </form>
+
+            {error && (
+              <div className="mt-4 p-3 bg-red-50 text-red-600 text-sm font-medium rounded-lg border border-red-100 text-center">
+                {error}
+              </div>
+            )}
+
+            <div className="mt-8 text-center pt-6 border-t border-gray-100">
+              <p className="text-sm text-gray-500">
+                Already have an account?{" "}
+                <Link href="/login" className="text-emerald-600 hover:text-emerald-700 font-medium hover:underline">
+                  Sign in
+                </Link>
+              </p>
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Footer Note */}
-        <div className="mt-8 flex items-center justify-center gap-2 text-[10px] text-white/60 font-black tracking-[0.35em] uppercase drop-shadow-sm">
-          <Heart className="w-3 h-3 text-green-400 fill-green-400" />
-          The SAfe_T Community
+      {/* Right Column - Informational / Background Image */}
+      <div className="hidden lg:flex flex-1 relative items-center justify-center overflow-hidden">
+        <div className="absolute inset-0 z-0">
+          <img 
+            src="https://images.unsplash.com/photo-1555448248-2571daf6344b?auto=format&fit=crop&q=80&w=1200" 
+            alt="City at night" 
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gray-900/70" />
+        </div>
+        
+        <div className="max-w-md relative z-10 text-white p-12">
+          <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/20 mb-8">
+            <MapPin className="w-8 h-8 text-emerald-400" />
+          </div>
+          <h2 className="text-3xl font-bold mb-4 tracking-tight">Navigate with Confidence</h2>
+          <p className="text-gray-300 mb-8 leading-relaxed">
+            Join thousands of users who rely on SAfe_T for real-time safety scores, intelligent routing, and community-driven alerts.
+          </p>
+          
+          <div className="space-y-4">
+            {[
+              "Real-time safety scores based on CCTNS data",
+              "Smart routing avoiding high-risk areas",
+              "Community-verified local safety alerts",
+              "Instant SOS dispatch with live location"
+            ].map((feature, i) => (
+              <div key={i} className="flex items-center gap-3 text-sm font-medium text-gray-300">
+                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                {feature}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
