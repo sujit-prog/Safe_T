@@ -9,6 +9,12 @@ interface Settings {
   nightModeEnabled: boolean;
 }
 
+interface Contact {
+  id: string;
+  guardianName: string;
+  phoneNumber: string;
+}
+
 const THRESHOLDS = [
   { value: "LOW", label: "Low", desc: "Alert on any risk — even minor", color: "emerald" },
   { value: "MEDIUM", label: "Medium", desc: "Alert on moderate risk and above (recommended)", color: "orange" },
@@ -32,20 +38,28 @@ export default function PreferencesPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [newContactName, setNewContactName] = useState("");
+  const [newContactPhone, setNewContactPhone] = useState("");
+  const [addingContact, setAddingContact] = useState(false);
+
   useEffect(() => {
     const userData = localStorage.getItem("safet_user");
     if (!userData) { window.location.href = "/login"; return; }
     const user = JSON.parse(userData);
     setUserId(user.id ?? null);
     if (user.id) {
-      fetch(`/api/user/settings?userId=${user.id}`)
-        .then(r => r.json())
-        .then(data => {
-          if (!data.error) setSettings({
-            alertThreshold: data.alertThreshold,
-            sosInactivitySecs: data.sosInactivitySecs,
-            nightModeEnabled: data.nightModeEnabled,
+      Promise.all([
+        fetch(`/api/user/settings?userId=${user.id}`).then(r => r.json()),
+        fetch(`/api/user/contacts?userId=${user.id}`).then(r => r.json())
+      ])
+        .then(([settingsData, contactsData]) => {
+          if (!settingsData.error) setSettings({
+            alertThreshold: settingsData.alertThreshold,
+            sosInactivitySecs: settingsData.sosInactivitySecs,
+            nightModeEnabled: settingsData.nightModeEnabled,
           });
+          if (contactsData.contacts) setContacts(contactsData.contacts);
         })
         .catch(console.error)
         .finally(() => setLoading(false));
@@ -69,6 +83,37 @@ export default function PreferencesPage() {
       console.error(e);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAddContact = async () => {
+    if (!newContactName.trim() || !newContactPhone.trim() || !userId) return;
+    setAddingContact(true);
+    try {
+      const res = await fetch("/api/user/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, guardianName: newContactName, phoneNumber: newContactPhone }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setContacts([data.contact, ...contacts]);
+        setNewContactName("");
+        setNewContactPhone("");
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAddingContact(false);
+    }
+  };
+
+  const handleRemoveContact = async (id: string) => {
+    try {
+      await fetch(`/api/user/contacts?id=${id}`, { method: "DELETE" });
+      setContacts(contacts.filter(c => c.id !== id));
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -176,6 +221,65 @@ export default function PreferencesPage() {
           <Moon className="w-5 h-5" />
           Night-time Multiplier: {settings.nightModeEnabled ? "ON" : "OFF"}
         </button>
+      </div>
+
+      {/* Emergency Contacts */}
+      <div className="bg-white/60 backdrop-blur-2xl rounded-[2.5rem] p-8 border border-white shadow-xl">
+        <h2 className="text-xl font-black text-stone-900 flex items-center gap-3 mb-2">
+          <div className="p-2.5 rounded-xl bg-blue-50 text-blue-500">
+            <Shield className="w-5 h-5" />
+          </div>
+          Emergency Contacts
+        </h2>
+        <p className="text-sm text-stone-500 font-medium mb-6">
+          These contacts will receive an immediate SMS alert with your live coordinates if you activate SOS.
+        </p>
+
+        <div className="space-y-4 mb-6">
+          {contacts.map(c => (
+            <div key={c.id} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-stone-100 shadow-sm">
+              <div>
+                <p className="font-bold text-stone-900">{c.guardianName}</p>
+                <p className="text-xs font-medium text-stone-500">{c.phoneNumber}</p>
+              </div>
+              <button 
+                onClick={() => handleRemoveContact(c.id)}
+                className="text-xs font-bold text-red-500 hover:text-red-700 bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          {contacts.length === 0 && (
+            <p className="text-sm text-stone-400 font-medium text-center py-4">No emergency contacts added yet.</p>
+          )}
+        </div>
+
+        <div className="p-5 bg-stone-50 rounded-2xl border border-stone-100 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <input 
+              type="text" 
+              placeholder="Name (e.g. Mom)" 
+              value={newContactName}
+              onChange={e => setNewContactName(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 bg-white focus:border-blue-500 focus:outline-none transition-colors font-medium text-sm text-stone-900"
+            />
+            <input 
+              type="text" 
+              placeholder="Phone Number" 
+              value={newContactPhone}
+              onChange={e => setNewContactPhone(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 bg-white focus:border-blue-500 focus:outline-none transition-colors font-medium text-sm text-stone-900"
+            />
+          </div>
+          <button
+            onClick={handleAddContact}
+            disabled={addingContact || !newContactName || !newContactPhone}
+            className="w-full py-3 rounded-xl font-bold text-sm bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-lg shadow-blue-500/25 disabled:opacity-50"
+          >
+            {addingContact ? "Adding..." : "Add Emergency Contact"}
+          </button>
+        </div>
       </div>
 
       {/* Save Button */}
