@@ -25,7 +25,7 @@ interface RouteOption {
 // ─── OSRM Routing ─────────────────────────────────────────────────────────────
 async function geocode(query: string): Promise<{ lat: number; lng: number } | null> {
   const res = await fetch(
-    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`
+    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=in`
   );
   const data = await res.json();
   if (!data.length) return null;
@@ -159,53 +159,94 @@ export default function DashboardOverview() {
         return;
       }
 
-      const labels: Array<"Safest" | "Fastest" | "Balanced"> =
-        routes.length === 1
-          ? ["Safest"]
-          : routes.length === 2
-          ? ["Fastest", "Safest"]
-          : ["Fastest", "Safest", "Balanced"];
+      // Evaluate the actual safety score of each route by calling the route safety API
+      const evaluatedOptions = await Promise.all(
+        routes.map(async (r, osrmIdx) => {
+          const coords = r.geometry.coordinates.map(([lng, lat]: [number, number]) => [lat, lng]);
+          
+          let avgSafetyScore = 70; // fallback
+          try {
+            const safetyReq = await fetch('/api/route-safety', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ coordinates: coords })
+            });
+            const safetyRes = await safetyReq.json();
+            if (safetyRes.success && safetyRes.segments?.length > 0) {
+              const totalScore = safetyRes.segments.reduce((acc: number, seg: any) => acc + seg.score, 0);
+              avgSafetyScore = Math.round(totalScore / safetyRes.segments.length);
+            }
+          } catch (err) {
+            console.warn("Failed to fetch route safety", err);
+          }
 
-      const icons = [
-        <Zap key="z" className="w-4 h-4" />,
-        <Shield key="s" className="w-4 h-4" />,
-        <Route key="r" className="w-4 h-4" />,
-      ];
-      const colors = ["text-orange-500", "text-emerald-500", "text-blue-500"];
+          const distKm = r.distance / 1000;
+          const timeMin = Math.round(r.duration / 60);
+          const hours = Math.floor(timeMin / 60);
+          const mins = timeMin % 60;
+          const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${timeMin}m`;
+          const distStr = distKm < 1 ? `< 1 km` : `${distKm.toFixed(1)} km`;
 
-      // Re-order: put "Safest" first visually (OSRM index 1 if exists, else 0)
-      const displayOrder =
-        routes.length >= 3 ? [1, 0, 2] : routes.length === 2 ? [1, 0] : [0];
+          const riskLevel: "LOW" | "MEDIUM" | "HIGH" =
+            avgSafetyScore >= 70 ? "LOW" : avgSafetyScore >= 45 ? "MEDIUM" : "HIGH";
 
-      const options: RouteOption[] = displayOrder.map((osrmIdx, displayIdx) => {
-        const r = routes[osrmIdx];
-        const distKm = r.distance / 1000;
-        const timeMin = Math.round(r.duration / 60);
-        const hours = Math.floor(timeMin / 60);
-        const mins = timeMin % 60;
-        const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${timeMin}m`;
-        const distStr = distKm < 1 ? `< 1 km` : `${distKm.toFixed(1)} km`;
-        const score = scorifyRoute(osrmIdx, routes.length, distKm);
-        const riskLevel: "LOW" | "MEDIUM" | "HIGH" =
-          score >= 70 ? "LOW" : score >= 50 ? "MEDIUM" : "HIGH";
+          return {
+            osrmIndex: osrmIdx,
+            time: timeStr,
+            distance: distStr,
+            safetyScore: avgSafetyScore,
+            riskLevel,
+            rawDuration: r.duration,
+          };
+        })
+      );
 
-        // Labels: Safest is always first in display, Fastest second, Balanced third
-        const labelArr: Array<"Safest" | "Fastest" | "Balanced"> = ["Safest", "Fastest", "Balanced"];
+      // Sort to find Safest and Fastest
+      const sortedBySafety = [...evaluatedOptions].sort((a, b) => b.safetyScore - a.safetyScore);
+      const sortedByTime = [...evaluatedOptions].sort((a, b) => a.rawDuration - b.rawDuration);
+
+      const safestIndex = sortedBySafety[0].osrmIndex;
+      const fastestIndex = sortedByTime[0].osrmIndex;
+
+      const options: RouteOption[] = evaluatedOptions.map((opt) => {
+        let label: "Safest" | "Fastest" | "Balanced" = "Balanced";
+        if (opt.osrmIndex === safestIndex) {
+          label = "Safest";
+        } else if (opt.osrmIndex === fastestIndex) {
+          label = "Fastest";
+        } else {
+          label = "Balanced";
+        }
+
+        const icon =
+          label === "Safest" ? <Shield className="w-4 h-4" /> :
+          label === "Fastest" ? <Zap className="w-4 h-4" /> :
+          <Route className="w-4 h-4" />;
+
+        const color =
+          label === "Safest" ? "text-emerald-500" :
+          label === "Fastest" ? "text-orange-500" :
+          "text-blue-500";
 
         return {
-          label: labelArr[displayIdx],
-          time: timeStr,
-          distance: distStr,
-          safetyScore: score,
-          riskLevel,
-          color: colors[displayIdx],
-          icon: icons[displayIdx],
-          osrmIndex: osrmIdx,
+          label,
+          time: opt.time,
+          distance: opt.distance,
+          safetyScore: opt.safetyScore,
+          riskLevel: opt.riskLevel,
+          color,
+          icon,
+          osrmIndex: opt.osrmIndex,
         };
       });
 
+      // Sort display: Safest first, then Fastest, then Balanced
+      options.sort((a, b) => {
+        const order = { Safest: 0, Fastest: 1, Balanced: 2 };
+        return order[a.label] - order[b.label];
+      });
+
       setRouteOptions(options);
-      // Pre-select Safest
       setSelectedRoute(options[0]);
     } catch (err) {
       console.error("Route error:", err);
