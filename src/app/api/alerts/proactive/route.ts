@@ -89,17 +89,17 @@ export async function GET(req: Request) {
         WHERE ST_DWithin(
           ST_MakePoint(longitude, latitude)::geography,
           ST_MakePoint(${lng}, ${lat})::geography,
-          2000
+          5000
         )
       `;
       for (const incident of rawIncidents) {
         const dist = Number(incident.distance);
-        const weight = (2000 - dist) / 2000;
+        const weight = (5000 - dist) / 5000;
         penalty += weight * incident.severity * 2.5;
       }
     } catch (e) {
       console.warn("PostGIS proactive incident query failed, fallback used:", e);
-      const range = 2000 / 111000;
+      const range = 5000 / 111000;
       const dbIncidents = await prisma.incidentReport.findMany({
         where: {
           latitude: { gte: lat - range, lte: lat + range },
@@ -108,8 +108,8 @@ export async function GET(req: Request) {
       });
       for (const inc of dbIncidents) {
         const dist = getHaversineDistance(lat, lng, inc.latitude, inc.longitude);
-        if (dist <= 2000) {
-          const weight = (2000 - dist) / 2000;
+        if (dist <= 5000) {
+          const weight = (5000 - dist) / 5000;
           penalty += weight * inc.severity * 2.5;
         }
       }
@@ -127,12 +127,12 @@ export async function GET(req: Request) {
         WHERE ST_DWithin(
           ST_MakePoint(longitude, latitude)::geography,
           ST_MakePoint(${lng}, ${lat})::geography,
-          2000
+          5000
         )
       `;
     } catch (e) {
       console.warn("PostGIS proactive anchor query failed, fallback used:", e);
-      const range = 2000 / 111000;
+      const range = 5000 / 111000;
       const dbAnchors = await prisma.safeAnchor.findMany({
         where: {
           latitude: { gte: lat - range, lte: lat + range },

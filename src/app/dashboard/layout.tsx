@@ -50,9 +50,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <aside className="w-full lg:w-72 bg-white/70 backdrop-blur-xl border-r border-green-50 p-8 flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-3 mb-12">
-              <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center shadow-lg shadow-green-100">
-                <ShieldCheck className="w-6 h-6 text-white" />
-              </div>
+              <img src="/favicon.ico" alt="SAfe_T Logo" className="w-10 h-10 object-contain" />
               <span className="text-xl font-bold tracking-tight text-green-900">SAfe_T</span>
             </div>
 

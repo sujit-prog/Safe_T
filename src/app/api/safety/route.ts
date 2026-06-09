@@ -67,18 +67,18 @@ export async function GET(req: Request) {
         WHERE ST_DWithin(
           ST_MakePoint(longitude, latitude)::geography,
           ST_MakePoint(${lng}, ${lat})::geography,
-          2000
+          5000
         )
       `;
       for (const incident of rawIncidents) {
         const dist = Number(incident.distance);
-        const weight = (2000 - dist) / 2000;
+        const weight = (5000 - dist) / 5000;
         penalty += weight * incident.severity * 2.5; // Scale weight
       }
     } catch (e) {
       console.warn("PostGIS incident lookup failed, using mathematical fallback:", e);
       // Fallback: manual bounding box + JS math
-      const range = 2000 / 111000; // ~2km in degrees
+      const range = 5000 / 111000; // ~5km in degrees
       const dbIncidents = await prisma.incidentReport.findMany({
         where: {
           latitude: { gte: lat - range, lte: lat + range },
@@ -87,8 +87,8 @@ export async function GET(req: Request) {
       });
       for (const inc of dbIncidents) {
         const dist = getHaversineDistance(lat, lng, inc.latitude, inc.longitude);
-        if (dist <= 2000) {
-          const weight = (2000 - dist) / 2000;
+        if (dist <= 5000) {
+          const weight = (5000 - dist) / 5000;
           penalty += weight * inc.severity * 2.5;
         }
       }
@@ -107,12 +107,12 @@ export async function GET(req: Request) {
         WHERE ST_DWithin(
           ST_MakePoint(longitude, latitude)::geography,
           ST_MakePoint(${lng}, ${lat})::geography,
-          2000
+          5000
         )
       `;
     } catch (e) {
       console.warn("PostGIS anchor lookup failed, using fallback:", e);
-      const range = 2000 / 111000;
+      const range = 5000 / 111000;
       const dbAnchors = await prisma.safeAnchor.findMany({
         where: {
           latitude: { gte: lat - range, lte: lat + range },
@@ -122,7 +122,7 @@ export async function GET(req: Request) {
       safeAnchors = dbAnchors.map(a => {
         const dist = getHaversineDistance(lat, lng, a.latitude, a.longitude);
         return { ...a, distance: dist };
-      }).filter(a => a.distance <= 2000);
+      }).filter(a => a.distance <= 5000);
     }
 
     for (const a of safeAnchors) {
@@ -250,4 +250,29 @@ function generateRecommendations(metrics: SafetyMetrics): string[] {
   }
   
   return recommendations;
+}
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const { userId, location, score, status } = body;
+
+    if (!userId || !location || score === undefined || !status) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    const check = await prisma.checkHistory.create({
+      data: {
+        userId,
+        location,
+        score: Math.round(score),
+        status,
+      }
+    });
+
+    return NextResponse.json({ success: true, check });
+  } catch (error: any) {
+    console.error("Save Check History Error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }
