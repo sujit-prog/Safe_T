@@ -27,9 +27,13 @@ export default function QuickCheckMap({ onCheckComplete }: QuickCheckMapProps) {
     try {
       fixLeafletIcon();
 
+      const indiaBounds = L.latLngBounds(L.latLng(6.75, 68.1), L.latLng(35.5, 97.4));
       const map = L.map(mapRef.current, {
         center: [28.6139, 77.2090],
-        zoom: 12,
+        zoom: 5,
+        minZoom: 4,
+        maxBounds: indiaBounds,
+        maxBoundsViscosity: 1.0,
         zoomControl: true,
       });
 

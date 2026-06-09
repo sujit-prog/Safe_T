@@ -64,7 +64,7 @@ function maneuverIcon(type: string): string {
 async function geocode(query: string): Promise<[number, number] | null> {
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`,
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=in`,
       { headers: { 'User-Agent': 'SAfe_T-Location-Tracker' } }
     );
     const data = await res.json();
@@ -120,9 +120,13 @@ export default function NavigatorMap({
     if (!mapRef.current || mapInstanceRef.current) return;
     fixLeafletIcon();
 
+    const indiaBounds = L.latLngBounds(L.latLng(6.75, 68.1), L.latLng(35.5, 97.4));
     const map = L.map(mapRef.current, {
       center: [20.5937, 78.9629], // India center
       zoom: 5,
+      minZoom: 4,
+      maxBounds: indiaBounds,
+      maxBoundsViscosity: 1.0,
       zoomControl: false,
     });
 
@@ -207,32 +211,62 @@ export default function NavigatorMap({
         return;
       }
 
-    // Pick correct OSRM route index based on type
-    let routeIdx = 0;
-    if (type === 'Safest' && routes.length > 1) routeIdx = 1;
-    else if (type === 'Balanced' && routes.length > 2) routeIdx = 2;
+    // Evaluate all OSRM routes dynamically to find the actual Safest, Fastest, and Balanced routes
+    const evaluated = await Promise.all(
+      routes.map(async (r, idx) => {
+        const routeCoords = r.geometry.coordinates.map(([lng, lat]: [number, number]) => [lat, lng]);
+        
+        let avgScore = 70; // fallback
+        let segmentScores: any[] = [];
+        try {
+          const safetyReq = await fetch('/api/route-safety', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ coordinates: routeCoords })
+          });
+          const safetyRes = await safetyReq.json();
+          if (safetyRes.success && safetyRes.segments?.length > 0) {
+            const totalScore = safetyRes.segments.reduce((acc: number, seg: any) => acc + seg.score, 0);
+            avgScore = Math.round(totalScore / safetyRes.segments.length);
+            segmentScores = safetyRes.segments;
+          }
+        } catch (err) {
+          console.warn('Failed to fetch route safety for route index ' + idx, err);
+        }
 
-    const route = routes[routeIdx];
-    const baseScore = scoreRoute(routeIdx, routes.length);
-    const coords: [number, number][] = route.geometry.coordinates.map(
-      ([lng, lat]: [number, number]) => [lat, lng]
+        return {
+          idx,
+          avgScore,
+          segmentScores,
+          duration: r.duration,
+          route: r,
+          coords: routeCoords
+        };
+      })
     );
 
-    // Ask our Geospatial API for real safety scores along this route
-    let segmentScores: any[] = [];
-    try {
-      const safetyReq = await fetch('/api/route-safety', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ coordinates: coords })
-      });
-      const safetyRes = await safetyReq.json();
-      if (safetyRes.success && safetyRes.segments) {
-        segmentScores = safetyRes.segments;
-      }
-    } catch (err) {
-      console.warn('Failed to fetch real route safety, falling back to base score', err);
+    // Identify Safest (highest avg score) and Fastest (shortest duration)
+    const sortedBySafety = [...evaluated].sort((a, b) => b.avgScore - a.avgScore);
+    const sortedByTime = [...evaluated].sort((a, b) => a.duration - b.duration);
+
+    const safestIdx = sortedBySafety[0].idx;
+    const fastestIdx = sortedByTime[0].idx;
+
+    // Resolve the selection based on the requested 'type'
+    let selectedRouteData = evaluated[0];
+    if (type === 'Safest') {
+      selectedRouteData = evaluated.find(e => e.idx === safestIdx) || evaluated[0];
+    } else if (type === 'Fastest') {
+      selectedRouteData = evaluated.find(e => e.idx === fastestIdx) || evaluated[0];
+    } else if (type === 'Balanced') {
+      const balancedItem = evaluated.find(e => e.idx !== safestIdx && e.idx !== fastestIdx);
+      selectedRouteData = balancedItem || evaluated[2] || evaluated[0];
     }
+
+    const route = selectedRouteData.route;
+    const baseScore = selectedRouteData.avgScore;
+    const coords = selectedRouteData.coords;
+    const segmentScores = selectedRouteData.segmentScores;
 
     // Draw shadow
     L.polyline(coords, { color: '#000', weight: 8, opacity: 0.12 })

@@ -25,6 +25,20 @@ export async function POST(req: Request) {
       include: { user: { include: { guardianConnections: true } } },
     });
 
+    // Simulate real-time dispatch of SOS alerts to all guardian contacts
+    const guardians = trip.user.guardianConnections;
+    const userName = trip.user.name || "Friend";
+    console.log(`\n🚨🚨🚨 [SOS DISPATCH ALERT] 🚨🚨🚨`);
+    console.log(`User: ${userName} (${trip.user.email}) has triggered emergency SOS!`);
+    console.log(`Current Location: Lat ${lat ?? "Unknown"}, Lng ${lng ?? "Unknown"}`);
+    console.log(`Dispatched real-time alerts to ${guardians.length} contacts:`);
+    for (const g of guardians) {
+      const mockPhone = "+91 98765 " + Math.floor(10000 + Math.random() * 90000);
+      console.log(`  ✉️  SMS Sent to ${g.guardianName} (${mockPhone})`);
+      console.log(`     Content: "ALERT! ${userName} has triggered SOS near ${lat?.toFixed(4) ?? '?'}, ${lng?.toFixed(4) ?? '?'}. Track live: http://safe-t.app/tracking/${trip.id}"`);
+    }
+    console.log(`🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨\n`);
+
     // Find nearest Safe Anchor
     const anchors = await prisma.safeAnchor.findMany({ take: 10 });
 
