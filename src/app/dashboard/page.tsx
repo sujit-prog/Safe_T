@@ -7,6 +7,7 @@ import {
   Navigation2, Phone, Route, Zap, Clock, TrendingUp
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useLiveLocation } from "@/hooks/useLiveLocation";
 import ProactiveAlertBanner from "@/app/components/common/ProactiveAlertBanner";
 
@@ -51,6 +52,96 @@ function scorifyRoute(index: number, routeCount: number, distKm: number): number
   return Math.round(baseScore); // Middle
 }
 
+// ─── Risk Breakdown Component ─────────────────────────────────────────────────
+function getRiskColor(risk: number): string {
+  if (risk < 25) return "bg-emerald-500";
+  if (risk < 55) return "bg-orange-500";
+  return "bg-red-500";
+}
+
+function RiskBreakdown({
+  overallSafety,
+  historicalScore,
+  environmentalScore,
+  activeAlertScore,
+}: {
+  overallSafety: number;
+  historicalScore: number;
+  environmentalScore: number;
+  activeAlertScore: number;
+}) {
+  const overallRisk = 100 - overallSafety;
+  const historicalRisk = 100 - historicalScore;
+  const environmentalRisk = 100 - environmentalScore;
+  const activeAlertRisk = 100 - activeAlertScore;
+
+  let riskLabel = "Low Risk";
+  let riskStyle = "bg-emerald-50 text-emerald-700 border-emerald-200";
+  if (overallRisk >= 55) {
+    riskLabel = "High Risk";
+    riskStyle = "bg-red-50 text-red-700 border-red-200";
+  } else if (overallRisk >= 25) {
+    riskLabel = "Moderate Risk";
+    riskStyle = "bg-orange-50 text-orange-700 border-orange-200";
+  }
+
+  return (
+    <div className="p-5 bg-stone-50 rounded-2xl border border-stone-100 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
+      <div className="text-center md:text-left shrink-0">
+        <p className="text-xs font-black text-stone-400 uppercase tracking-widest">Overall Risk Score</p>
+        <h3 className="text-4xl font-black text-stone-900 mt-1">
+          {overallRisk} <span className="text-lg text-stone-400">/ 100</span>
+        </h3>
+        <p className={`text-xs font-extrabold uppercase mt-2 px-3 py-1 rounded-full border inline-block ${riskStyle}`}>
+          {riskLabel}
+        </p>
+      </div>
+
+      <div className="w-full md:w-2/3 space-y-3">
+        <div className="flex justify-between items-center mb-1">
+          <p className="text-xs font-black text-stone-400 uppercase tracking-widest">Risk Breakdown</p>
+          <Link href="/dashboard/risk-model" className="text-xs font-black text-emerald-600 hover:text-emerald-500 hover:underline transition-all">
+            How is this calculated? →
+          </Link>
+        </div>
+
+        {/* Historical Crime Risk */}
+        <div>
+          <div className="flex justify-between text-xs font-bold text-stone-600 mb-1">
+            <span>Historical Crime Risk (20%)</span>
+            <span>{historicalRisk}%</span>
+          </div>
+          <div className="h-2 bg-stone-200 rounded-full overflow-hidden">
+            <div className={`h-full ${getRiskColor(historicalRisk)} rounded-full transition-all duration-500`} style={{ width: `${historicalRisk}%` }} />
+          </div>
+        </div>
+
+        {/* Infrastructure Vulnerability */}
+        <div>
+          <div className="flex justify-between text-xs font-bold text-stone-600 mb-1">
+            <span>Infrastructure Vulnerability (35%)</span>
+            <span>{environmentalRisk}%</span>
+          </div>
+          <div className="h-2 bg-stone-200 rounded-full overflow-hidden">
+            <div className={`h-full ${getRiskColor(environmentalRisk)} rounded-full transition-all duration-500`} style={{ width: `${environmentalRisk}%` }} />
+          </div>
+        </div>
+
+        {/* Active Alert Threat */}
+        <div>
+          <div className="flex justify-between text-xs font-bold text-stone-600 mb-1">
+            <span>Active Alert Threat (45%)</span>
+            <span>{activeAlertRisk}%</span>
+          </div>
+          <div className="h-2 bg-stone-200 rounded-full overflow-hidden">
+            <div className={`h-full ${getRiskColor(activeAlertRisk)} rounded-full transition-all duration-500`} style={{ width: `${activeAlertRisk}%` }} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 export default function DashboardOverview() {
   const router = useRouter();
@@ -78,12 +169,14 @@ export default function DashboardOverview() {
   const [checkQuery, setCheckQuery] = useState("");
   const [checkingLocation, setCheckingLocation] = useState(false);
   const [singleLocationResult, setSingleLocationResult] = useState<any | null>(null);
+  const [ncrbData, setNcrbData] = useState<any | null>(null);
   const [savingCheck, setSavingCheck] = useState(false);
 
   const handleLocationCheck = async () => {
     if (!checkQuery.trim()) return;
     setCheckingLocation(true);
     setSingleLocationResult(null);
+    setNcrbData(null);
     try {
       const coords = await geocode(checkQuery);
       if (!coords) {
@@ -91,12 +184,18 @@ export default function DashboardOverview() {
         setCheckingLocation(false);
         return;
       }
-      const res = await fetch(`/api/safety?lat=${coords.lat}&lng=${coords.lng}&address=${encodeURIComponent(checkQuery)}`);
-      const data = await res.json();
+      // Fetch safety score and NCRB data in parallel
+      const [safetyRes, ncrbRes] = await Promise.all([
+        fetch(`/api/safety?lat=${coords.lat}&lng=${coords.lng}&address=${encodeURIComponent(checkQuery)}`),
+        fetch(`/api/ncrb-data?lat=${coords.lat}&lng=${coords.lng}`),
+      ]);
+      const data = await safetyRes.json();
+      const ncrb = await ncrbRes.json();
       if (data.error) {
         alert("Failed to calculate safety score: " + data.error);
       } else {
         setSingleLocationResult(data);
+        if (ncrb.found) setNcrbData(ncrb.data);
       }
     } catch (err: any) {
       console.error("Location check error:", err);
@@ -110,14 +209,22 @@ export default function DashboardOverview() {
     if (!singleLocationResult || !userId) return;
     setSavingCheck(true);
     try {
+      const overallRisk = 100 - singleLocationResult.safety.overallSafety;
+      let riskLabel = "Low Risk";
+      if (overallRisk >= 55) {
+        riskLabel = "High Risk";
+      } else if (overallRisk >= 25) {
+        riskLabel = "Moderate Risk";
+      }
+
       const res = await fetch("/api/safety", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId,
           location: singleLocationResult.location.address,
-          score: singleLocationResult.safety.overallSafety,
-          status: singleLocationResult.safety.riskLevel
+          score: overallRisk,
+          status: riskLabel
         })
       });
       const data = await res.json();
@@ -508,58 +615,12 @@ export default function DashboardOverview() {
                 {/* Score Breakdown Display */}
                 {singleLocationResult && (
                   <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <div className="p-5 bg-stone-50 rounded-2xl border border-stone-100 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
-                      <div className="text-center md:text-left shrink-0">
-                        <p className="text-xs font-black text-stone-400 uppercase tracking-widest">Overall Safety</p>
-                        <h3 className="text-4xl font-black text-stone-900 mt-1">
-                          {singleLocationResult.safety.overallSafety}%
-                        </h3>
-                        <p className={`text-xs font-extrabold uppercase mt-2 px-3 py-1 rounded-full border inline-block ${
-                          singleLocationResult.safety.riskLevel === "Verified Safe" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                          singleLocationResult.safety.riskLevel === "Caution Advised" ? "bg-orange-50 text-orange-700 border-orange-200" :
-                          "bg-red-50 text-red-700 border-red-200"
-                        }`}>
-                          {singleLocationResult.safety.riskLevel}
-                        </p>
-                      </div>
-
-                      <div className="w-full md:w-2/3 space-y-3">
-                        <p className="text-xs font-black text-stone-400 uppercase tracking-widest">Metrics Breakdown</p>
-                        
-                        {/* Historical */}
-                        <div>
-                          <div className="flex justify-between text-xs font-bold text-stone-600 mb-1">
-                            <span>Historical Crime Analysis (20%)</span>
-                            <span>{singleLocationResult.safety.historicalScore}%</span>
-                          </div>
-                          <div className="h-2 bg-stone-200 rounded-full overflow-hidden">
-                            <div className="h-full bg-blue-500 rounded-full" style={{ width: `${singleLocationResult.safety.historicalScore}%` }} />
-                          </div>
-                        </div>
-
-                        {/* Environmental */}
-                        <div>
-                          <div className="flex justify-between text-xs font-bold text-stone-600 mb-1">
-                            <span>Environmental Infrastructure (35%)</span>
-                            <span>{singleLocationResult.safety.environmentalScore}%</span>
-                          </div>
-                          <div className="h-2 bg-stone-200 rounded-full overflow-hidden">
-                            <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${singleLocationResult.safety.environmentalScore}%` }} />
-                          </div>
-                        </div>
-
-                        {/* Active Alerts */}
-                        <div>
-                          <div className="flex justify-between text-xs font-bold text-stone-600 mb-1">
-                            <span>Active Network Alerts (45%)</span>
-                            <span>{singleLocationResult.safety.activeAlertScore}%</span>
-                          </div>
-                          <div className="h-2 bg-stone-200 rounded-full overflow-hidden">
-                            <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${singleLocationResult.safety.activeAlertScore}%` }} />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <RiskBreakdown
+                      overallSafety={singleLocationResult.safety.overallSafety}
+                      historicalScore={singleLocationResult.safety.historicalScore}
+                      environmentalScore={singleLocationResult.safety.environmentalScore}
+                      activeAlertScore={singleLocationResult.safety.activeAlertScore}
+                    />
 
                     {/* Recommendations */}
                     {singleLocationResult.recommendations.length > 0 && (
@@ -580,6 +641,42 @@ export default function DashboardOverview() {
                     >
                       {savingCheck ? "Saving Check..." : "Save to Check History"}
                     </button>
+
+                    {/* NCRB District Data Panel */}
+                    {ncrbData && (
+                      <div className="p-4 bg-blue-50/60 border border-blue-100 rounded-2xl space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div>
+                            <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">NCRB Crime in India 2022</p>
+                            <p className="text-sm font-black text-blue-900 mt-0.5">{ncrbData.district} District — HQ: {ncrbData.hq}</p>
+                          </div>
+                          <a href="https://ncrb.gov.in" target="_blank" rel="noopener noreferrer" className="text-[10px] font-black text-blue-500 hover:text-blue-700 hover:underline transition-all uppercase tracking-widest">
+                            Source: NCRB ↗
+                          </a>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {[
+                            { label: "Total IPC Crimes", value: ncrbData.totalIPC.toLocaleString(), urgent: ncrbData.totalIPC > 10000 },
+                            { label: "Murder", value: ncrbData.categories.murder, urgent: ncrbData.categories.murder > 60 },
+                            { label: "Rape", value: ncrbData.categories.rape, urgent: ncrbData.categories.rape > 100 },
+                            { label: "Robbery", value: ncrbData.categories.robbery, urgent: ncrbData.categories.robbery > 100 },
+                            { label: "Burglary", value: ncrbData.categories.burglary.toLocaleString(), urgent: ncrbData.categories.burglary > 600 },
+                            { label: "Theft", value: ncrbData.categories.theft.toLocaleString(), urgent: ncrbData.categories.theft > 2000 },
+                            { label: "Kidnapping", value: ncrbData.categories.kidnapping, urgent: false },
+                            { label: "Cyber Crimes", value: ncrbData.categories.cyberCrimes, urgent: false },
+                          ].map(stat => (
+                            <div key={stat.label} className={`p-2.5 rounded-xl border text-center ${stat.urgent ? "bg-red-50 border-red-100" : "bg-white border-blue-50"}`}>
+                              <p className={`text-sm font-black ${stat.urgent ? "text-red-600" : "text-blue-800"}`}>{stat.value}</p>
+                              <p className="text-[9px] font-bold text-stone-400 uppercase tracking-widest mt-0.5">{stat.label}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-[9px] text-stone-400 font-medium leading-relaxed">
+                          {ncrbData.source}. Data covers entire {ncrbData.district} district. Individual location risk may vary.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -807,9 +904,11 @@ export default function DashboardOverview() {
                 </div>
                 <div className="flex items-center justify-between sm:justify-end gap-6 sm:w-1/3">
                   <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-inner ${
-                    item.status === "Verified Safe" ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
-                    item.status === "Caution Advised" ? "bg-orange-50 text-orange-600 border-orange-100" :
-                    "bg-red-50 text-red-600 border-red-100"
+                    item.status === "Verified Safe" || item.status === "Low Risk"
+                      ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                      : item.status === "Caution Advised" || item.status === "Moderate Risk"
+                      ? "bg-orange-50 text-orange-600 border-orange-100"
+                      : "bg-red-50 text-red-600 border-red-100"
                   }`}>
                     {item.status}
                   </div>

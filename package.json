@@ -7,7 +7,8 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "seed:ogd": "ts-node prisma/seed-ogd-crimes.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
