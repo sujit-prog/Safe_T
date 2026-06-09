@@ -73,8 +73,73 @@ export default function DashboardOverview() {
     anchors: any[];
   } | null>(null);
 
+  // Single location check states & handlers
+  const [activeTab, setActiveTab] = useState<"routing" | "location">("routing");
+  const [checkQuery, setCheckQuery] = useState("");
+  const [checkingLocation, setCheckingLocation] = useState(false);
+  const [singleLocationResult, setSingleLocationResult] = useState<any | null>(null);
+  const [savingCheck, setSavingCheck] = useState(false);
+
+  const handleLocationCheck = async () => {
+    if (!checkQuery.trim()) return;
+    setCheckingLocation(true);
+    setSingleLocationResult(null);
+    try {
+      const coords = await geocode(checkQuery);
+      if (!coords) {
+        alert("Location not found. Please try a more specific Indian location name.");
+        setCheckingLocation(false);
+        return;
+      }
+      const res = await fetch(`/api/safety?lat=${coords.lat}&lng=${coords.lng}&address=${encodeURIComponent(checkQuery)}`);
+      const data = await res.json();
+      if (data.error) {
+        alert("Failed to calculate safety score: " + data.error);
+      } else {
+        setSingleLocationResult(data);
+      }
+    } catch (err: any) {
+      console.error("Location check error:", err);
+      alert("An error occurred while analyzing this location.");
+    } finally {
+      setCheckingLocation(false);
+    }
+  };
+
+  const handleSaveCheck = async () => {
+    if (!singleLocationResult || !userId) return;
+    setSavingCheck(true);
+    try {
+      const res = await fetch("/api/safety", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          location: singleLocationResult.location.address,
+          score: singleLocationResult.safety.overallSafety,
+          status: singleLocationResult.safety.riskLevel
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Refresh overview history list
+        const overviewRes = await fetch("/api/dashboard/overview");
+        const overviewData = await overviewRes.json();
+        if (!overviewData.error) setDashboardData(overviewData);
+        alert("Location check saved to history!");
+      } else {
+        alert("Failed to save check: " + data.error);
+      }
+    } catch (err) {
+      console.error("Save check error:", err);
+      alert("Failed to save check.");
+    } finally {
+      setSavingCheck(false);
+    }
+  };
+
   // Live location & proactive alerts
-  const { lat, lng, alert, isTracking, tripId, startTrip, endTrip } = useLiveLocation(userId);
+  const { lat, lng, alert: proactiveAlert, isTracking, tripId, startTrip, endTrip } = useLiveLocation(userId);
 
   // ─── Load user & location ───────────────────────────────────────────────────
   React.useEffect(() => {
@@ -295,7 +360,7 @@ export default function DashboardOverview() {
 
       {/* Proactive Alert Banner */}
       <ProactiveAlertBanner
-        alert={alert}
+        alert={proactiveAlert}
         isTracking={isTracking}
         sosInactivitySecs={60}
         onSosTrigger={() => { setIsSosActive(true); handleSOS(); }}
@@ -386,118 +451,246 @@ export default function DashboardOverview() {
           </button>
         </div>
 
-        {/* Route Planner */}
+        {/* Route Planner & Location Auditor */}
         <div className="xl:col-span-2 bg-white/60 backdrop-blur-2xl rounded-[2.5rem] p-8 border border-white shadow-2xl shadow-emerald-900/5 flex flex-col hover:-translate-y-1 transition-transform duration-500">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-black text-stone-900 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/30">
-                <Navigation className="w-5 h-5 text-white" />
-              </div>
-              Safe Route Planner
-            </h2>
+          
+          {/* Tab Selector Header */}
+          <div className="flex items-center justify-between mb-6 border-b border-stone-100 pb-4 flex-wrap gap-4">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setActiveTab("routing")}
+                className={`px-5 py-2.5 rounded-xl text-sm font-black transition-all flex items-center gap-2 ${activeTab === "routing" ? "bg-stone-900 text-white shadow-lg" : "text-stone-400 hover:text-stone-700"}`}
+              >
+                <Navigation className="w-4 h-4" /> Route Safety
+              </button>
+              <button
+                onClick={() => setActiveTab("location")}
+                className={`px-5 py-2.5 rounded-xl text-sm font-black transition-all flex items-center gap-2 ${activeTab === "location" ? "bg-stone-900 text-white shadow-lg" : "text-stone-400 hover:text-stone-700"}`}
+              >
+                <MapPin className="w-4 h-4" /> Location Safety
+              </button>
+            </div>
+            
             <div className="px-4 py-2 bg-emerald-50 rounded-full border border-emerald-100 items-center gap-2 hidden sm:flex">
               <Shield className="w-4 h-4 text-emerald-600" />
-              <span className="text-xs font-black text-emerald-700 uppercase tracking-widest">OSRM Active</span>
+              <span className="text-xs font-black text-emerald-700 uppercase tracking-widest">PostGIS Active</span>
             </div>
           </div>
 
           <div className="flex-1 space-y-4">
-            {/* Origin */}
-            <div className="relative group">
-              <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
-                <div className="w-3 h-3 rounded-full bg-blue-500 ring-4 ring-blue-500/20" />
-              </div>
-              <input
-                type="text" value={origin} onChange={(e) => setOrigin(e.target.value)}
-                className="w-full pl-14 pr-4 py-4 lg:py-5 bg-white/80 border border-stone-200 rounded-2xl text-stone-900 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all shadow-sm group-hover:shadow-md"
-                placeholder="Current Location"
-              />
-            </div>
-            {/* Destination */}
-            <div className="relative group">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <MapPin className="w-5 h-5 text-red-500" />
-              </div>
-              <input
-                type="text" value={destination} onChange={(e) => setDestination(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleRouteSearch()}
-                className="w-full pl-14 pr-4 py-4 lg:py-5 bg-white/80 border border-stone-200 rounded-2xl text-stone-900 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all shadow-sm group-hover:shadow-md"
-                placeholder="Where to?"
-              />
-              <button
-                onClick={handleRouteSearch}
-                className="absolute inset-y-2 right-2 px-6 bg-stone-900 hover:bg-emerald-600 text-white rounded-xl font-bold transition-colors flex items-center gap-2 shadow-lg"
-              >
-                {isCalculating ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>Go <Search className="w-4 h-4" /></>}
-              </button>
-            </div>
-
-            {/* Route Options */}
-            {routeOptions.length > 0 && (
-              <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                <p className="text-xs font-black text-stone-400 uppercase tracking-widest px-1">Choose Your Route</p>
-                {routeOptions.map((route) => (
+            {activeTab === "location" ? (
+              <div className="space-y-4">
+                {/* Location Input */}
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <MapPin className="w-5 h-5 text-emerald-500" />
+                  </div>
+                  <input
+                    type="text"
+                    value={checkQuery}
+                    onChange={(e) => setCheckQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleLocationCheck()}
+                    className="w-full pl-14 pr-4 py-4 lg:py-5 bg-white/80 border border-stone-200 rounded-2xl text-stone-900 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all shadow-sm group-hover:shadow-md"
+                    placeholder="Check single location (e.g. Patia, Bhubaneswar)..."
+                  />
                   <button
-                    key={route.label}
-                    onClick={() => setSelectedRoute(route)}
-                    className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
-                      selectedRoute?.label === route.label
-                        ? "border-emerald-500 bg-emerald-50 shadow-lg shadow-emerald-500/10"
-                        : "border-stone-100 bg-white hover:border-stone-200 hover:shadow-md"
-                    }`}
+                    onClick={handleLocationCheck}
+                    className="absolute inset-y-2 right-2 px-6 bg-stone-900 hover:bg-emerald-600 text-white rounded-xl font-bold transition-colors flex items-center gap-2 shadow-lg cursor-pointer"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className={`p-2 rounded-xl ${
-                          route.label === "Safest" ? "bg-emerald-100 text-emerald-600" :
-                          route.label === "Fastest" ? "bg-orange-100 text-orange-600" :
-                          "bg-blue-100 text-blue-600"
+                    {checkingLocation ? (
+                      <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>Analyze <Search className="w-4 h-4" /></>
+                    )}
+                  </button>
+                </div>
+
+                {/* Score Breakdown Display */}
+                {singleLocationResult && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="p-5 bg-stone-50 rounded-2xl border border-stone-100 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
+                      <div className="text-center md:text-left shrink-0">
+                        <p className="text-xs font-black text-stone-400 uppercase tracking-widest">Overall Safety</p>
+                        <h3 className="text-4xl font-black text-stone-900 mt-1">
+                          {singleLocationResult.safety.overallSafety}%
+                        </h3>
+                        <p className={`text-xs font-extrabold uppercase mt-2 px-3 py-1 rounded-full border inline-block ${
+                          singleLocationResult.safety.riskLevel === "Verified Safe" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                          singleLocationResult.safety.riskLevel === "Caution Advised" ? "bg-orange-50 text-orange-700 border-orange-200" :
+                          "bg-red-50 text-red-700 border-red-200"
                         }`}>
-                          {route.label === "Safest" ? <Shield className="w-4 h-4" /> :
-                           route.label === "Fastest" ? <Zap className="w-4 h-4" /> :
-                           <Route className="w-4 h-4" />}
-                        </span>
-                        <div>
-                          <p className="font-black text-stone-900 text-sm">{route.label}</p>
-                          <p className="text-xs font-bold text-stone-400">{route.distance}</p>
-                        </div>
+                          {singleLocationResult.safety.riskLevel}
+                        </p>
                       </div>
-                      <div className="text-right">
-                        <p className="font-black text-stone-900">{route.time}</p>
-                        <div className={`flex items-center gap-1 justify-end text-xs font-bold ${
-                          route.riskLevel === "LOW" ? "text-emerald-600" :
-                          route.riskLevel === "MEDIUM" ? "text-orange-500" : "text-red-500"
-                        }`}>
-                          <TrendingUp className="w-3 h-3" />
-                          {route.safetyScore}% Safe
+
+                      <div className="w-full md:w-2/3 space-y-3">
+                        <p className="text-xs font-black text-stone-400 uppercase tracking-widest">Metrics Breakdown</p>
+                        
+                        {/* Historical */}
+                        <div>
+                          <div className="flex justify-between text-xs font-bold text-stone-600 mb-1">
+                            <span>Historical Crime Analysis (20%)</span>
+                            <span>{singleLocationResult.safety.historicalScore}%</span>
+                          </div>
+                          <div className="h-2 bg-stone-200 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500 rounded-full" style={{ width: `${singleLocationResult.safety.historicalScore}%` }} />
+                          </div>
+                        </div>
+
+                        {/* Environmental */}
+                        <div>
+                          <div className="flex justify-between text-xs font-bold text-stone-600 mb-1">
+                            <span>Environmental Infrastructure (35%)</span>
+                            <span>{singleLocationResult.safety.environmentalScore}%</span>
+                          </div>
+                          <div className="h-2 bg-stone-200 rounded-full overflow-hidden">
+                            <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${singleLocationResult.safety.environmentalScore}%` }} />
+                          </div>
+                        </div>
+
+                        {/* Active Alerts */}
+                        <div>
+                          <div className="flex justify-between text-xs font-bold text-stone-600 mb-1">
+                            <span>Active Network Alerts (45%)</span>
+                            <span>{singleLocationResult.safety.activeAlertScore}%</span>
+                          </div>
+                          <div className="h-2 bg-stone-200 rounded-full overflow-hidden">
+                            <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${singleLocationResult.safety.activeAlertScore}%` }} />
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </button>
-                ))}
 
-                <button
-                  onClick={navigateToMap}
-                  className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-lg transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
-                >
-                  Start Navigation <ChevronRight className="w-5 h-5" />
-                </button>
+                    {/* Recommendations */}
+                    {singleLocationResult.recommendations.length > 0 && (
+                      <div className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl space-y-1.5">
+                        <p className="text-xs font-black text-emerald-800 uppercase tracking-widest">Safety Recommendations</p>
+                        {singleLocationResult.recommendations.map((rec: string, idx: number) => (
+                          <p key={idx} className="text-xs font-medium text-emerald-700 leading-snug">
+                            {rec}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={handleSaveCheck}
+                      disabled={savingCheck}
+                      className="w-full py-3.5 rounded-xl bg-stone-900 hover:bg-emerald-600 disabled:bg-stone-400 text-white font-black text-sm transition-colors shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {savingCheck ? "Saving Check..." : "Save to Check History"}
+                    </button>
+                  </div>
+                )}
+
+                {!singleLocationResult && !checkingLocation && (
+                  <div className="flex flex-col items-center justify-center h-48 gap-3 text-center px-4">
+                    <Shield className="w-10 h-10 text-stone-200 animate-bounce" />
+                    <p className="text-stone-400 font-bold text-sm">Enter an address or landmark above to generate a location safety audit.</p>
+                    <p className="text-stone-300 text-xs">Uses real-time historical, environmental, and peer network indicators.</p>
+                  </div>
+                )}
               </div>
-            )}
-
-            {/* Quick destinations (shown when no route yet) */}
-            {!routeOptions.length && (
-              <div className="pt-2 flex gap-3 overflow-x-auto pb-2 scrollbar-none">
-                {["Home", "Library", "Hospital", "Police Station"].map((dest) => (
+            ) : (
+              <>
+                {/* Origin */}
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+                    <div className="w-3 h-3 rounded-full bg-blue-500 ring-4 ring-blue-500/20" />
+                  </div>
+                  <input
+                    type="text" value={origin} onChange={(e) => setOrigin(e.target.value)}
+                    className="w-full pl-14 pr-4 py-4 lg:py-5 bg-white/80 border border-stone-200 rounded-2xl text-stone-900 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all shadow-sm group-hover:shadow-md"
+                    placeholder="Current Location"
+                  />
+                </div>
+                {/* Destination */}
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <MapPin className="w-5 h-5 text-red-500" />
+                  </div>
+                  <input
+                    type="text" value={destination} onChange={(e) => setDestination(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleRouteSearch()}
+                    className="w-full pl-14 pr-4 py-4 lg:py-5 bg-white/80 border border-stone-200 rounded-2xl text-stone-900 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all shadow-sm group-hover:shadow-md"
+                    placeholder="Where to?"
+                  />
                   <button
-                    key={dest}
-                    onClick={() => { setDestination(dest); }}
-                    className="whitespace-nowrap flex-1 px-4 py-3 rounded-xl bg-white border border-stone-100 font-bold text-stone-600 hover:border-emerald-200 hover:text-emerald-600 transition-all flex items-center gap-2 shadow-sm cursor-pointer text-sm"
+                    onClick={handleRouteSearch}
+                    className="absolute inset-y-2 right-2 px-6 bg-stone-900 hover:bg-emerald-600 text-white rounded-xl font-bold transition-colors flex items-center gap-2 shadow-lg cursor-pointer"
                   >
-                    {dest === "Home" ? "🏠" : dest === "Library" ? "📚" : dest === "Hospital" ? "🏥" : "🚔"} {dest}
+                    {isCalculating ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>Go <Search className="w-4 h-4" /></>}
                   </button>
-                ))}
-              </div>
+                </div>
+
+                {/* Route Options */}
+                {routeOptions.length > 0 && (
+                  <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <p className="text-xs font-black text-stone-400 uppercase tracking-widest px-1">Choose Your Route</p>
+                    {routeOptions.map((route) => (
+                      <button
+                        key={route.label}
+                        onClick={() => setSelectedRoute(route)}
+                        className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
+                          selectedRoute?.label === route.label
+                            ? "border-emerald-500 bg-emerald-50 shadow-lg shadow-emerald-500/10"
+                            : "border-stone-100 bg-white hover:border-stone-200 hover:shadow-md"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className={`p-2 rounded-xl ${
+                              route.label === "Safest" ? "bg-emerald-100 text-emerald-600" :
+                              route.label === "Fastest" ? "bg-orange-100 text-orange-600" :
+                              "bg-blue-100 text-blue-600"
+                            }`}>
+                              {route.label === "Safest" ? <Shield className="w-4 h-4" /> :
+                               route.label === "Fastest" ? <Zap className="w-4 h-4" /> :
+                               <Route className="w-4 h-4" />}
+                            </span>
+                            <div>
+                              <p className="font-black text-stone-900 text-sm">{route.label}</p>
+                              <p className="text-xs font-bold text-stone-400">{route.distance}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-black text-stone-900">{route.time}</p>
+                            <div className={`flex items-center gap-1 justify-end text-xs font-bold ${
+                              route.riskLevel === "LOW" ? "text-emerald-600" :
+                              route.riskLevel === "MEDIUM" ? "text-orange-500" : "text-red-500"
+                            }`}>
+                              <TrendingUp className="w-3 h-3" />
+                              {route.safetyScore}% Safe
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+
+                    <button
+                      onClick={navigateToMap}
+                      className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-lg transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      Start Navigation <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Quick destinations (shown when no route yet) */}
+                {!routeOptions.length && (
+                  <div className="pt-2 flex gap-3 overflow-x-auto pb-2 scrollbar-none">
+                    {["Home", "Library", "Hospital", "Police Station"].map((dest) => (
+                      <button
+                        key={dest}
+                        onClick={() => { setDestination(dest); }}
+                        className="whitespace-nowrap flex-1 px-4 py-3 rounded-xl bg-white border border-stone-100 font-bold text-stone-600 hover:border-emerald-200 hover:text-emerald-600 transition-all flex items-center gap-2 shadow-sm cursor-pointer text-sm"
+                      >
+                        {dest === "Home" ? "🏠" : dest === "Library" ? "📚" : dest === "Hospital" ? "🏥" : "🚔"} {dest}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

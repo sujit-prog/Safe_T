@@ -251,3 +251,28 @@ function generateRecommendations(metrics: SafetyMetrics): string[] {
   
   return recommendations;
 }
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const { userId, location, score, status } = body;
+
+    if (!userId || !location || score === undefined || !status) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    const check = await prisma.checkHistory.create({
+      data: {
+        userId,
+        location,
+        score: Math.round(score),
+        status,
+      }
+    });
+
+    return NextResponse.json({ success: true, check });
+  } catch (error: any) {
+    console.error("Save Check History Error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
