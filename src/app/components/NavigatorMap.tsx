@@ -172,7 +172,7 @@ export default function NavigatorMap({
           data.hotspots.forEach((hotspot: any) => {
             const color = hotspot.risk_level === 'High' ? '#ef4444' : hotspot.risk_level === 'Medium' ? '#f97316' : '#22c55e';
             
-            L.circle([hotspot.center_lat, hotspot.center_lng], {
+            L.circle([hotspot.centroid.lat, hotspot.centroid.lng], {
               color: color,
               fillColor: color,
               fillOpacity: 0.15,
@@ -187,7 +187,7 @@ export default function NavigatorMap({
                 </h4>
                 <div style="font-size: 13px; color: #4b5563; line-height: 1.5;">
                   <div><strong>Total Incidents:</strong> ${hotspot.incident_count}</div>
-                  <div><strong>Dominant Issue:</strong> ${hotspot.dominant_crime}</div>
+                  <div><strong>Dominant Issue:</strong> ${hotspot.dominant_crime_type}</div>
                   <div style="margin-top: 6px; font-size: 11px; color: #9ca3af;">DBSCAN Cluster ID: #${hotspot.cluster_id}</div>
                 </div>
               </div>

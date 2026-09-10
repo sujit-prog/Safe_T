@@ -32,11 +32,8 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # ─── Database ───────────────────────────────────────────────────────────────────
 # Use the same Supabase connection as the Next.js app
-# Falls back to .env file in project root
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "postgresql://postgres.cuxcjjzhtvpwabvrhnuz:sujitkumar12@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?sslmode=require"
-)
+# Requires DATABASE_URL to be set in the environment
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 # ─── Feature Configuration ──────────────────────────────────────────────────────
 # These are the features the ML model is trained on.
