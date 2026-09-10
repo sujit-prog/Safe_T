@@ -1,0 +1,92 @@
+{
+  "model_version": "1.0.0",
+  "algorithm": "Random Forest",
+  "features": [
+    "crime_density_500m",
+    "crime_density_2km",
+    "avg_severity_nearby",
+    "severe_crime_ratio",
+    "district_ipc_total",
+    "district_ipc_normalized",
+    "district_accidents",
+    "district_accident_norm",
+    "crowdedness_score",
+    "hour",
+    "day_of_week",
+    "is_weekend",
+    "is_night",
+    "month",
+    "dist_to_police_km",
+    "dist_to_hospital_km",
+    "lighting_proxy"
+  ],
+  "feature_count": 17,
+  "training_date": "2026-09-10T20:29:51.992674",
+  "training_dataset_version": "ncrb_2022_odisha_v1",
+  "training_samples": 20686,
+  "validation_samples": 4433,
+  "test_samples": 4433,
+  "class_distribution": {
+    "train": {
+      "High": 44,
+      "Low": 11663,
+      "Medium": 8979
+    },
+    "val": {
+      "High": 10,
+      "Low": 2499,
+      "Medium": 1924
+    },
+    "test": {
+      "High": 10,
+      "Low": 2499,
+      "Medium": 1924
+    }
+  },
+  "evaluation_metrics": {
+    "best_model": {
+      "model_name": "Random Forest",
+      "accuracy": 0.995,
+      "precision": 0.9952,
+      "recall": 0.995,
+      "f1_score": 0.9951,
+      "roc_auc": 0.9999,
+      "selection_score": 0.9999
+    },
+    "all_models": [
+      {
+        "model_name": "Logistic Regression",
+        "accuracy": 0.9898,
+        "precision": 0.9934,
+        "recall": 0.9898,
+        "f1_score": 0.9912,
+        "roc_auc": 0.9994,
+        "selection_score": 0.9994
+      },
+      {
+        "model_name": "Random Forest",
+        "accuracy": 0.995,
+        "precision": 0.9952,
+        "recall": 0.995,
+        "f1_score": 0.9951,
+        "roc_auc": 0.9999,
+        "selection_score": 0.9999
+      },
+      {
+        "model_name": "XGBoost",
+        "accuracy": 0.9991,
+        "precision": 0.9991,
+        "recall": 0.9991,
+        "f1_score": 0.9991,
+        "roc_auc": 1.0,
+        "selection_score": 1.0
+      }
+    ]
+  },
+  "notes": "Trained on synthetic grid data derived from NCRB 2022 Odisha district statistics and MoRTH 2022 road accident data. Incidents are seeded proportionally to real crime counts. Labels are computed from a composite risk formula combining crime density, district stats, temporal factors, and proximity to emergency services.",
+  "classes": [
+    "High",
+    "Low",
+    "Medium"
+  ]
+}

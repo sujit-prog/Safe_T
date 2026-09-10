@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import {
   MapPin, Bell, ChevronRight, AlertOctagon, Navigation, Shield,
-  Phone, Route, Zap, TrendingUp, History, ShieldCheck, Activity, Users, Clock, AlertTriangle
+  Phone, Route, Zap, TrendingUp, History, ShieldCheck, Activity, Users, Clock, AlertTriangle, Sparkles, BrainCircuit
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -43,15 +43,17 @@ async function fetchOSRMRoutes(
   return data.routes;
 }
 
-// ─── Genuine NCRB Score Display ───────────────────────────────────────────────
+// ─── Score Display ───────────────────────────────────────────────
 function SafetyScoreCard({
   overallSafety,
   riskLevel,
-  districtMatch
+  districtMatch,
+  predictionSource
 }: {
   overallSafety: number;
   riskLevel: string;
   districtMatch: string;
+  predictionSource?: string;
 }) {
   let riskStyle = "bg-emerald-50 text-emerald-700 border-emerald-200";
   if (overallSafety < 45) {
@@ -60,10 +62,14 @@ function SafetyScoreCard({
     riskStyle = "bg-orange-50 text-orange-700 border-orange-200";
   }
 
+  const isML = predictionSource === "ml_model";
+
   return (
     <div className="p-6 bg-white border border-gray-200 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-sm">
       <div className="text-left shrink-0">
-        <p className="text-sm font-medium text-gray-500">NCRB-Verified Safety Score</p>
+        <p className="text-sm font-medium text-gray-500">
+          {isML ? "ML-Predicted Safety Score" : "NCRB-Verified Safety Score"}
+        </p>
         <h3 className="text-4xl font-bold text-gray-900 mt-2">
           {overallSafety} <span className="text-lg text-gray-400 font-normal">/ 100</span>
         </h3>
@@ -74,17 +80,63 @@ function SafetyScoreCard({
 
       <div className="w-full md:w-1/2 p-4 bg-gray-50 rounded-lg border border-gray-100">
         <div className="flex items-start gap-3">
-          <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+          {isML ? (
+            <BrainCircuit className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
+          ) : (
+            <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+          )}
           <div>
-            <p className="text-sm font-semibold text-gray-900">100% Genuine Data</p>
+            <p className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+              {isML ? "AI-Powered Analysis" : "100% Genuine Data"}
+              {isML && <span className="bg-purple-100 text-purple-700 text-[10px] px-1.5 py-0.5 rounded-full uppercase tracking-wider font-bold border border-purple-200">New</span>}
+            </p>
             <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-              This score is calculated directly from the National Crime Records Bureau's 2022 dataset for the <strong>{districtMatch}</strong> district. No mock algorithms or estimates are used.
+              {isML 
+                ? `This score is predicted by our advanced Machine Learning model trained on historical crime records, temporal data, and environmental factors for ${districtMatch}.`
+                : `This score is calculated directly from the National Crime Records Bureau's 2022 dataset for the ${districtMatch} district. No mock algorithms or estimates are used.`}
             </p>
             <Link href="/dashboard/risk-model" className="inline-block mt-2 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline">
               Read our methodology
             </Link>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ML Factors Breakdown ───────────────────────────────────────────────────
+function MLFactorsBreakdown({ factors }: { factors: any[] }) {
+  if (!factors || factors.length === 0) return null;
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm mt-4">
+      <h3 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
+        <Sparkles className="w-4 h-4 text-purple-600" />
+        Top Safety Factors
+      </h3>
+      
+      <div className="space-y-3">
+        {factors.map((factor, i) => {
+          const isRiskIncrease = factor.direction === "increases_risk";
+          const Icon = isRiskIncrease ? AlertTriangle : ShieldCheck;
+          const iconColor = isRiskIncrease ? "text-red-500" : "text-emerald-500";
+          const bgColor = isRiskIncrease ? "bg-red-50" : "bg-emerald-50";
+          const borderColor = isRiskIncrease ? "border-red-100" : "border-emerald-100";
+
+          return (
+            <div key={i} className={`p-3 rounded-lg border ${borderColor} ${bgColor} flex items-start gap-3`}>
+              <Icon className={`w-5 h-5 ${iconColor} shrink-0 mt-0.5`} />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-gray-900">{factor.factor}</p>
+                <div className="flex justify-between items-center mt-1">
+                  <p className="text-xs text-gray-600">{factor.display_name || factor.feature}</p>
+                  <p className="text-[10px] font-mono text-gray-500 uppercase">Impact: {(factor.importance * 100).toFixed(1)}%</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -190,6 +242,13 @@ export default function DashboardOverview() {
   const [userId, setUserId] = useState<string | null>(null);
   const [currentLocation, setCurrentLocation] = useState("Loading location...");
   const [transitStatus, setTransitStatus] = useState<"Safe" | "In Transit">("Safe");
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+
+  useEffect(() => {
+    setCurrentTime(new Date());
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
@@ -220,8 +279,9 @@ export default function DashboardOverview() {
         setCheckingLocation(false);
         return;
       }
+      const currentTimeParam = `&time=${encodeURIComponent(new Date().toISOString())}`;
       const [safetyRes, ncrbRes] = await Promise.all([
-        fetch(`/api/safety?lat=${coords.lat}&lng=${coords.lng}&address=${encodeURIComponent(checkQuery)}`),
+        fetch(`/api/safety?lat=${coords.lat}&lng=${coords.lng}&address=${encodeURIComponent(checkQuery)}${currentTimeParam}`),
         fetch(`/api/ncrb-data?lat=${coords.lat}&lng=${coords.lng}`),
       ]);
       const data = await safetyRes.json();
@@ -487,9 +547,17 @@ export default function DashboardOverview() {
       {/* Header */}
       <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Good to see you, {userName}
-          </h1>
+          <div className="flex items-center gap-3 mb-1">
+            <h1 className="text-2xl font-bold text-gray-900">
+              Good to see you, {userName}
+            </h1>
+            {currentTime && (
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-gray-100 rounded-full text-xs font-medium text-gray-600 border border-gray-200">
+                <Clock className="w-3.5 h-3.5" />
+                {currentTime.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} • {currentTime.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-2 mt-1">
             <div className="relative flex h-2 w-2">
               <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isTracking ? "bg-orange-400" : "bg-emerald-400"}`} />
@@ -555,7 +623,7 @@ export default function DashboardOverview() {
                   <button
                     onClick={handleLocationCheck}
                     disabled={checkingLocation}
-                    className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-md text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-70"
+                    className="px-6 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-70 whitespace-nowrap"
                   >
                     {checkingLocation ? "Checking..." : "Analyze"}
                   </button>
@@ -596,11 +664,14 @@ export default function DashboardOverview() {
                       overallSafety={singleLocationResult.safety.overallSafety}
                       riskLevel={singleLocationResult.safety.riskLevel}
                       districtMatch={singleLocationResult.safety.districtMatch}
+                      predictionSource={singleLocationResult.safety.predictionSource}
                     />
 
-                    {singleLocationResult.safety.breakdown && (
+                    {singleLocationResult.safety.predictionSource === "ml_model" && singleLocationResult.safety.topFactorsDetailed ? (
+                      <MLFactorsBreakdown factors={singleLocationResult.safety.topFactorsDetailed} />
+                    ) : singleLocationResult.safety.breakdown ? (
                       <MultiFactorBreakdown breakdown={singleLocationResult.safety.breakdown} />
-                    )}
+                    ) : null}
 
                     {ncrbData && (
                       <div className="mt-6 p-5 border border-gray-100 bg-white rounded-xl shadow-sm">

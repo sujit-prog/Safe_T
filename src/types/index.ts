@@ -66,6 +66,93 @@ export interface GuardianStats {
   isExpert: boolean;
 }
 
+// ─── ML Prediction Types ────────────────────────────────────────────────────────
+
+export interface MLRiskFactor {
+  factor: string;
+  feature?: string;
+  display_name?: string;
+  direction: 'increases_risk' | 'decreases_risk' | 'neutral';
+  importance: number;
+  shap_value?: number;
+  feature_value?: number;
+}
+
+export interface MLPrediction {
+  risk_probability: number;
+  safety_score: number;
+  risk_level: 'Low' | 'Medium' | 'High';
+  risk_level_predicted?: string;
+  class_probabilities?: Record<string, number>;
+  nearest_district?: string;
+  top_factors?: MLRiskFactor[];
+  temporal?: {
+    hour: number;
+    day_of_week: number;
+    is_weekend: boolean;
+    is_night: boolean;
+    month: number;
+  };
+  prediction_source: 'ml_model' | 'manual_fallback' | 'error';
+  model_version?: string;
+}
+
+export interface RouteSegmentML {
+  startIndex: number;
+  endIndex: number;
+  score: number;
+  safety_score: number;
+  risk_probability: number;
+  risk_level: string;
+  district: string;
+}
+
+export interface RouteRiskResult {
+  success: boolean;
+  segments: RouteSegmentML[];
+  overall_safety_score: number;
+  overall_risk_probability?: number;
+  overall_risk_level: string;
+  prediction_source: 'ml_model' | 'manual_fallback';
+}
+
+export interface Hotspot {
+  cluster_id: number;
+  centroid: { lat: number; lng: number };
+  bounds: {
+    min_lat: number; max_lat: number;
+    min_lng: number; max_lng: number;
+  };
+  radius_km: number;
+  incident_count: number;
+  avg_severity: number;
+  intensity: number;
+  dominant_crime_type: string;
+  risk_level: 'Low' | 'Medium' | 'High';
+}
+
+export interface HotspotData {
+  total_hotspots: number;
+  hotspots: Hotspot[];
+  algorithm: string;
+}
+
+export interface ModelInfo {
+  model_version: string;
+  algorithm: string;
+  features: string[];
+  training_date: string;
+  evaluation_metrics: {
+    best_model: {
+      accuracy: number;
+      precision: number;
+      recall: number;
+      f1_score: number;
+      roc_auc?: number;
+    };
+  };
+}
+
 // Component prop types
 export interface MapViewProps {
   onLocationChange?: (lat: number, lng: number, address: string) => void;

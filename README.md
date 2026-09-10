@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SAfe_T: AI-Powered Location & Route Safety Analysis
+
+SAfe_T is a comprehensive location safety analysis and safer-route recommendation application. It predicts the safety of specific locations and driving routes by utilizing an advanced Machine Learning pipeline (XGBoost) trained on genuine geospatial and incident data.
+
+## Features
+
+- **Location Safety Prediction**: Analyzes a location using 17 temporal and spatial features.
+- **Safer Route Generation**: Integrates with OSRM to generate route options and scores each segment with the ML model to find the "Safest", "Fastest", and "Balanced" routes.
+- **Explainable AI (SHAP)**: Uses TreeSHAP to provide transparency on *why* a location received its safety score.
+- **DBSCAN Crime Hotspots**: Automatically clusters high-density crime regions using DBSCAN.
+- **Structural Anomaly Detection**: Built-in Isolation Forest pipeline to detect unusual spikes in crime activity.
+- **Fallback System**: A robust 4-pillar deterministic formula (Crime, Accidents, Crowdedness, Time) ensures predictions are always available even if the ML service is down.
+
+## Architecture
+
+The project consists of two primary services:
+1. **Next.js Frontend & API (TypeScript)**: Handles the dashboard UI, map rendering, OSRM integration, and user interactions.
+2. **FastAPI ML Service (Python)**: Handles model inference, SHAP value calculation, hotspot detection, and anomaly detection.
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+- Node.js 18+
+- Python 3.10+
+- PostgreSQL database
 
+### 1. Setup the Next.js App
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+The dashboard will be available at [http://localhost:3000](http://localhost:3000).
+
+### 2. Setup the ML Pipeline
+Navigate to the `ml/` directory and install the required dependencies:
+```bash
+cd ml
+pip install -r requirements.txt
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Train the Model & Generate Data
+Before running the inference server, you must extract features and train the model:
+```bash
+# 1. Extract training data from the database
+python data/extract_features.py
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+# 2. Train the XGBoost model
+python train.py
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# 3. Generate DBSCAN hotspots
+python hotspot.py
 
-## Learn More
+# 4. Generate anomalies (Isolation Forest)
+python anomaly.py
+```
 
-To learn more about Next.js, take a look at the following resources:
+### 4. Run the ML Inference Server
+Start the FastAPI service on port 5001:
+```bash
+python serve.py
+```
+API Documentation will be available at [http://localhost:5001/docs](http://localhost:5001/docs).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Data Integrity and Transparency
+The ML model is trained on a synthetic dataset derived directly from official 2022 National Crime Records Bureau (NCRB) and Ministry of Road Transport and Highways (MoRTH) state statistics, mapped to geospatial grids across Odisha. This ensures predictions remain grounded in verified regional safety trends.

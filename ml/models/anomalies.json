@@ -1,0 +1,16 @@
+{
+  "status": "no_temporal_variation",
+  "generated_at": "2026-09-10T20:40:52.607419",
+  "algorithm": "IsolationForest",
+  "message": "Current seeded data lacks temporal variation. All incidents have similar timestamps from the database seeding process. Real anomaly detection requires actual crime data with meaningful date ranges.",
+  "limitation": "To enable this feature, the system needs geocoded crime records with actual incident dates spanning weeks/months. This would allow detecting unusual spikes like '15 incidents in one week vs. normal 2-3'.",
+  "anomalies": [],
+  "example_output_when_real_data_available": {
+    "district": "Khordha",
+    "week": 42,
+    "normal_activity": "3-5 incidents/week",
+    "current_activity": "18 incidents",
+    "status": "ANOMALY",
+    "description": "Unusual spike in crime activity detected"
+  }
+}
