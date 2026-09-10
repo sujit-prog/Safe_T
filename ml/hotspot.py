@@ -97,10 +97,12 @@ def run_dbscan(coordinates, eps=DBSCAN_EPS, min_samples=DBSCAN_MIN_SAMPLES):
     types = [c[2] for c in coordinates]
     severities = [c[3] for c in coordinates]
     
-    print(f"\n  Running DBSCAN (eps={eps}, min_samples={min_samples})...")
+    print(f"\n  Running DBSCAN (eps={eps} degrees, min_samples={min_samples})...")
     
-    db = DBSCAN(eps=eps, min_samples=min_samples, metric='haversine', algorithm='ball_tree')
-    # Convert to radians for haversine metric
+    # Convert eps (in degrees) to radians for haversine metric
+    eps_rad = np.radians(eps)
+    db = DBSCAN(eps=eps_rad, min_samples=min_samples, metric='haversine', algorithm='ball_tree')
+    # Convert points to radians for haversine metric
     X_rad = np.radians(X)
     labels = db.fit_predict(X_rad)
     
