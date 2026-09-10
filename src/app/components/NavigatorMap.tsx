@@ -159,6 +159,50 @@ export default function NavigatorMap({
     placeUserMarker(userLocation.lat, userLocation.lng);
   }, [mapReady, userLocation]);
 
+  // ── fetch and draw hotspots ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current) return;
+    
+    const loadHotspots = async () => {
+      try {
+        const res = await fetch('/api/hotspots');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && Array.isArray(data.hotspots)) {
+          data.hotspots.forEach((hotspot: any) => {
+            const color = hotspot.risk_level === 'High' ? '#ef4444' : hotspot.risk_level === 'Medium' ? '#f97316' : '#22c55e';
+            
+            L.circle([hotspot.center_lat, hotspot.center_lng], {
+              color: color,
+              fillColor: color,
+              fillOpacity: 0.15,
+              radius: 400, // 400m visual radius
+              weight: 2,
+              dashArray: '4 4'
+            })
+            .bindPopup(`
+              <div style="font-family: sans-serif; min-width: 160px; padding: 4px;">
+                <h4 style="margin: 0 0 6px 0; font-weight: bold; color: ${color}; display: flex; align-items: center; gap: 4px;">
+                  ⚠️ ${hotspot.risk_level} Risk Hotspot
+                </h4>
+                <div style="font-size: 13px; color: #4b5563; line-height: 1.5;">
+                  <div><strong>Total Incidents:</strong> ${hotspot.incident_count}</div>
+                  <div><strong>Dominant Issue:</strong> ${hotspot.dominant_crime}</div>
+                  <div style="margin-top: 6px; font-size: 11px; color: #9ca3af;">DBSCAN Cluster ID: #${hotspot.cluster_id}</div>
+                </div>
+              </div>
+            `)
+            .addTo(mapInstanceRef.current!);
+          });
+        }
+      } catch (e) {
+        console.error("Failed to load hotspots", e);
+      }
+    };
+    
+    loadHotspots();
+  }, [mapReady]);
+
   // ── draw route whenever origin/destination/routeType change ──────────────
   useEffect(() => {
     if (!mapReady || !origin || !destination) return;

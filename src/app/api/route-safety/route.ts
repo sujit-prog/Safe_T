@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 
-// ─── Genuine Data ─────────────────────────────────────────────────────────────
+// ─── ML Service Configuration ──────────────────────────────────────────────────
+const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://localhost:5001";
+
+// ─── Existing Data (Fallback) ─────────────────────────────────────────────────
 const NCRB_2022_ODISHA = [
   { district: "Khordha", lat: 20.1843, lng: 85.8314, totalIPC: 14823 },
   { district: "Cuttack", lat: 20.4625, lng: 85.8828, totalIPC: 12541 },
@@ -36,12 +39,11 @@ const MORTH_2022_ODISHA = [
 ];
 
 function getHaversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371; // km
+  const R = 6371;
   const p1 = (lat1 * Math.PI) / 180;
   const p2 = (lat2 * Math.PI) / 180;
   const dp = ((lat2 - lat1) * Math.PI) / 180;
   const dl = ((lon2 - lon1) * Math.PI) / 180;
-
   const a = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
@@ -52,77 +54,127 @@ function checkIsNight(): boolean {
   return hour >= 22 || hour < 5;
 }
 
+// ─── Manual Fallback Calculation ───────────────────────────────────────────────
+function calculateManualSegments(coordinates: number[][], isNight: boolean) {
+  const segSize = Math.max(5, Math.floor(coordinates.length / 20));
+  const segmentScores = [];
+
+  for (let i = 0; i < coordinates.length - 1; i += segSize) {
+    const segment = coordinates.slice(i, i + segSize + 1);
+    const midIdx = Math.floor(segment.length / 2);
+    const centerLat = segment[midIdx][0];
+    const centerLng = segment[midIdx][1];
+
+    let closestDistrict = NCRB_2022_ODISHA[0];
+    let minDist = Infinity;
+    for (const d of NCRB_2022_ODISHA) {
+      const dist = getHaversineDistance(centerLat, centerLng, d.lat, d.lng);
+      if (dist < minDist) { minDist = dist; closestDistrict = d; }
+    }
+    const morthMatch = MORTH_2022_ODISHA.find(m => m.district === closestDistrict.district) || MORTH_2022_ODISHA[0];
+
+    const crimeRatio = Math.min(closestDistrict.totalIPC / 15000, 1);
+    const crimeScore = 100 - (crimeRatio * 100);
+
+    const accidentRatio = Math.min(morthMatch.accidents / 1500, 1);
+    const accidentScore = 100 - (accidentRatio * 100);
+
+    let crowdednessScore = 50;
+    if (minDist < 5) crowdednessScore = 90;
+    else if (minDist < 15) crowdednessScore = 60;
+    else crowdednessScore = 30;
+
+    const timeScore = isNight ? 20 : 100;
+
+    const score = Math.round(
+      (crimeScore * 0.40) + (accidentScore * 0.20) + (crowdednessScore * 0.25) + (timeScore * 0.15)
+    );
+
+    segmentScores.push({
+      startIndex: i,
+      endIndex: i + segSize,
+      score,
+      safety_score: score,
+      risk_probability: Math.round((1 - score / 100) * 100) / 100,
+      risk_level: score >= 75 ? "Low" : score >= 45 ? "Medium" : "High",
+      district: closestDistrict.district,
+    });
+  }
+
+  return segmentScores;
+}
+
+// ─── ML-Powered Route Safety ───────────────────────────────────────────────────
+async function predictRouteWithML(coordinates: number[][], evaluationTime?: string) {
+  try {
+    const response = await fetch(`${ML_SERVICE_URL}/predict/route`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ coordinates, evaluation_time: evaluationTime }),
+      signal: AbortSignal.timeout(10000), // 10s timeout for routes
+    });
+
+    if (!response.ok) {
+      throw new Error(`ML service returned ${response.status}`);
+    }
+
+    const mlResult = await response.json();
+    
+    // Transform ML segments to match existing API format
+    const segments = (mlResult.segments || []).map((seg: any) => ({
+      startIndex: seg.startIndex,
+      endIndex: seg.endIndex,
+      score: seg.safety_score,
+      safety_score: seg.safety_score,
+      risk_probability: seg.risk_probability,
+      risk_level: seg.risk_level,
+      district: seg.district,
+    }));
+
+    return {
+      success: true,
+      segments,
+      overall_safety_score: mlResult.overall_safety_score,
+      overall_risk_probability: mlResult.overall_risk_probability,
+      overall_risk_level: mlResult.overall_risk_level,
+      prediction_source: "ml_model",
+    };
+  } catch (error: any) {
+    console.warn("ML route prediction unavailable:", error.message);
+    return null;
+  }
+}
+
 export async function POST(req: Request) {
   try {
-    const { coordinates } = await req.json();
+    const body = await req.json();
+    const { coordinates, evaluation_time } = body;
 
     if (!coordinates || coordinates.length === 0) {
       return NextResponse.json({ error: "Missing coordinates" }, { status: 400 });
     }
 
-    const segSize = Math.max(5, Math.floor(coordinates.length / 20));
-    const segmentScores = [];
-    const isNight = checkIsNight();
-
-    for (let i = 0; i < coordinates.length - 1; i += segSize) {
-      const segment = coordinates.slice(i, i + segSize + 1);
-      
-      const midIdx = Math.floor(segment.length / 2);
-      const centerLat = segment[midIdx][0];
-      const centerLng = segment[midIdx][1];
-
-      // ─── 4-Pillar Math ────────────────────────────────────────────────
-      // 1. District Match
-      let closestDistrict = NCRB_2022_ODISHA[0];
-      let minDist = Infinity;
-      
-      for (const d of NCRB_2022_ODISHA) {
-        const dist = getHaversineDistance(centerLat, centerLng, d.lat, d.lng);
-        if (dist < minDist) {
-          minDist = dist;
-          closestDistrict = d;
-        }
-      }
-      const morthMatch = MORTH_2022_ODISHA.find(m => m.district === closestDistrict.district) || MORTH_2022_ODISHA[0];
-
-      // 2. NCRB Crime Score (40%)
-      const crimeRatio = Math.min(closestDistrict.totalIPC / 15000, 1);
-      const crimeScore = 100 - (crimeRatio * 100);
-
-      // 3. MoRTH Accident Score (20%)
-      const accidentRatio = Math.min(morthMatch.accidents / 1500, 1);
-      const accidentScore = 100 - (accidentRatio * 100);
-
-      // 4. OSM Crowdedness (25%)
-      // Because fetching reverse geocoding for 20+ segments is extremely slow,
-      // we approximate crowdedness for routes based on distance to district HQ.
-      // Closer to HQ = denser/more crowded.
-      let crowdednessScore = 50; 
-      if (minDist < 5) crowdednessScore = 90; // highly dense center
-      else if (minDist < 15) crowdednessScore = 60; // suburban
-      else crowdednessScore = 30; // rural/highway isolated
-
-      // 5. Time Score (15%)
-      const timeScore = isNight ? 20 : 100;
-
-      const score = Math.round(
-        (crimeScore * 0.40) + 
-        (accidentScore * 0.20) + 
-        (crowdednessScore * 0.25) + 
-        (timeScore * 0.15)
-      );
-
-      segmentScores.push({
-        startIndex: i,
-        endIndex: i + segSize,
-        score: score,
-        district: closestDistrict.district
-      });
+    // ─── Try ML prediction first ───────────────────────────────────────────
+    const mlResult = await predictRouteWithML(coordinates, evaluation_time);
+    
+    if (mlResult) {
+      return NextResponse.json(mlResult);
     }
+
+    // ─── Fallback to manual calculation ────────────────────────────────────
+    const isNight = checkIsNight();
+    const segmentScores = calculateManualSegments(coordinates, isNight);
+
+    // Calculate overall
+    const totalScore = segmentScores.reduce((acc, seg) => acc + seg.score, 0);
+    const avgScore = Math.round(totalScore / segmentScores.length);
 
     return NextResponse.json({
       success: true,
-      segments: segmentScores
+      segments: segmentScores,
+      overall_safety_score: avgScore,
+      overall_risk_level: avgScore >= 75 ? "Low" : avgScore >= 45 ? "Medium" : "High",
+      prediction_source: "manual_fallback",
     });
     
   } catch (error: any) {

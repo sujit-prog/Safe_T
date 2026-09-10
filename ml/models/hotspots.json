@@ -1,0 +1,325 @@
+{
+  "generated_at": "2026-09-10T20:40:22.963743",
+  "algorithm": "DBSCAN",
+  "parameters": {
+    "eps": 0.005,
+    "min_samples": 5,
+    "eps_description": "~1m radius"
+  },
+  "total_hotspots": 13,
+  "hotspots": [
+    {
+      "cluster_id": 0,
+      "centroid": {
+        "lat": 20.303652,
+        "lng": 85.836109
+      },
+      "bounds": {
+        "min_lat": 19.715465,
+        "max_lat": 20.805244,
+        "min_lng": 85.488129,
+        "max_lng": 85.989821
+      },
+      "radius_km": 65.29,
+      "incident_count": 631,
+      "avg_severity": 4.07,
+      "intensity": 100,
+      "dominant_crime_type": "Mugging",
+      "crime_type_distribution": {
+        "Mugging": 353,
+        "Assault": 53,
+        "Robbery": 83,
+        "Theft": 142
+      },
+      "risk_level": "High"
+    },
+    {
+      "cluster_id": 1,
+      "centroid": {
+        "lat": 19.371162,
+        "lng": 84.777979
+      },
+      "bounds": {
+        "min_lat": 19.276989,
+        "max_lat": 19.481922,
+        "min_lng": 84.678598,
+        "max_lng": 84.882201
+      },
+      "radius_km": 13.24,
+      "incident_count": 75,
+      "avg_severity": 4.04,
+      "intensity": 100,
+      "dominant_crime_type": "Mugging",
+      "crime_type_distribution": {
+        "Assault": 13,
+        "Mugging": 34,
+        "Robbery": 28
+      },
+      "risk_level": "High"
+    },
+    {
+      "cluster_id": 2,
+      "centroid": {
+        "lat": 22.113995,
+        "lng": 84.033817
+      },
+      "bounds": {
+        "min_lat": 22.014109,
+        "max_lat": 22.233687,
+        "min_lng": 83.925513,
+        "max_lng": 84.171319
+      },
+      "radius_km": 17.92,
+      "incident_count": 66,
+      "avg_severity": 3.94,
+      "intensity": 100,
+      "dominant_crime_type": "Mugging",
+      "crime_type_distribution": {
+        "Assault": 16,
+        "Mugging": 39,
+        "Robbery": 11
+      },
+      "risk_level": "High"
+    },
+    {
+      "cluster_id": 3,
+      "centroid": {
+        "lat": 21.430484,
+        "lng": 83.860626
+      },
+      "bounds": {
+        "min_lat": 21.224671,
+        "max_lat": 21.575098,
+        "min_lng": 83.506039,
+        "max_lng": 84.055156
+      },
+      "radius_km": 41.75,
+      "incident_count": 85,
+      "avg_severity": 4.04,
+      "intensity": 100,
+      "dominant_crime_type": "Mugging",
+      "crime_type_distribution": {
+        "Mugging": 48,
+        "Assault": 21,
+        "Robbery": 16
+      },
+      "risk_level": "High"
+    },
+    {
+      "cluster_id": 4,
+      "centroid": {
+        "lat": 21.664159,
+        "lng": 86.853964
+      },
+      "bounds": {
+        "min_lat": 21.401375,
+        "max_lat": 22.03786,
+        "min_lng": 86.629736,
+        "max_lng": 87.067465
+      },
+      "radius_km": 44.48,
+      "incident_count": 89,
+      "avg_severity": 3.96,
+      "intensity": 100,
+      "dominant_crime_type": "Mugging",
+      "crime_type_distribution": {
+        "Mugging": 50,
+        "Assault": 22,
+        "Robbery": 17
+      },
+      "risk_level": "High"
+    },
+    {
+      "cluster_id": 5,
+      "centroid": {
+        "lat": 20.774862,
+        "lng": 86.399268
+      },
+      "bounds": {
+        "min_lat": 20.414199,
+        "max_lat": 21.156553,
+        "min_lng": 86.222638,
+        "max_lng": 86.584323
+      },
+      "radius_km": 42.51,
+      "incident_count": 122,
+      "avg_severity": 4.02,
+      "intensity": 100,
+      "dominant_crime_type": "Mugging",
+      "crime_type_distribution": {
+        "Mugging": 61,
+        "Robbery": 25,
+        "Assault": 36
+      },
+      "risk_level": "High"
+    },
+    {
+      "cluster_id": 6,
+      "centroid": {
+        "lat": 19.907098,
+        "lng": 83.167373
+      },
+      "bounds": {
+        "min_lat": 19.832209,
+        "max_lat": 19.994885,
+        "min_lng": 83.070062,
+        "max_lng": 83.273436
+      },
+      "radius_km": 12.15,
+      "incident_count": 38,
+      "avg_severity": 3.92,
+      "intensity": 74,
+      "dominant_crime_type": "Mugging",
+      "crime_type_distribution": {
+        "Assault": 12,
+        "Mugging": 18,
+        "Robbery": 8
+      },
+      "risk_level": "High"
+    },
+    {
+      "cluster_id": 7,
+      "centroid": {
+        "lat": 18.82308,
+        "lng": 82.708496
+      },
+      "bounds": {
+        "min_lat": 18.735127,
+        "max_lat": 18.914572,
+        "min_lng": 82.629857,
+        "max_lng": 82.81595
+      },
+      "radius_km": 13.13,
+      "incident_count": 36,
+      "avg_severity": 3.94,
+      "intensity": 71,
+      "dominant_crime_type": "Robbery",
+      "crime_type_distribution": {
+        "Assault": 8,
+        "Robbery": 14,
+        "Mugging": 14
+      },
+      "risk_level": "High"
+    },
+    {
+      "cluster_id": 8,
+      "centroid": {
+        "lat": 20.843495,
+        "lng": 85.093285
+      },
+      "bounds": {
+        "min_lat": 20.728509,
+        "max_lat": 20.941304,
+        "min_lng": 85.026465,
+        "max_lng": 85.214579
+      },
+      "radius_km": 16.92,
+      "incident_count": 34,
+      "avg_severity": 3.97,
+      "intensity": 67,
+      "dominant_crime_type": "Mugging",
+      "crime_type_distribution": {
+        "Assault": 3,
+        "Robbery": 10,
+        "Mugging": 21
+      },
+      "risk_level": "High"
+    },
+    {
+      "cluster_id": 9,
+      "centroid": {
+        "lat": 20.697314,
+        "lng": 83.493401
+      },
+      "bounds": {
+        "min_lat": 20.633912,
+        "max_lat": 20.807498,
+        "min_lng": 83.394477,
+        "max_lng": 83.602771
+      },
+      "radius_km": 12.47,
+      "incident_count": 33,
+      "avg_severity": 4.06,
+      "intensity": 67,
+      "dominant_crime_type": "Mugging",
+      "crime_type_distribution": {
+        "Mugging": 14,
+        "Assault": 11,
+        "Robbery": 8
+      },
+      "risk_level": "High"
+    },
+    {
+      "cluster_id": 10,
+      "centroid": {
+        "lat": 21.626812,
+        "lng": 85.581535
+      },
+      "bounds": {
+        "min_lat": 21.548855,
+        "max_lat": 21.701477,
+        "min_lng": 85.500048,
+        "max_lng": 85.6504
+      },
+      "radius_km": 11.1,
+      "incident_count": 28,
+      "avg_severity": 3.96,
+      "intensity": 55,
+      "dominant_crime_type": "Mugging",
+      "crime_type_distribution": {
+        "Mugging": 18,
+        "Assault": 4,
+        "Robbery": 6
+      },
+      "risk_level": "Medium"
+    },
+    {
+      "cluster_id": 12,
+      "centroid": {
+        "lat": 20.125426,
+        "lng": 85.095601
+      },
+      "bounds": {
+        "min_lat": 20.016649,
+        "max_lat": 20.203211,
+        "min_lng": 85.036108,
+        "max_lng": 85.162298
+      },
+      "radius_km": 12.53,
+      "incident_count": 20,
+      "avg_severity": 3.85,
+      "intensity": 38,
+      "dominant_crime_type": "Mugging",
+      "crime_type_distribution": {
+        "Mugging": 11,
+        "Robbery": 3,
+        "Assault": 6
+      },
+      "risk_level": "Medium"
+    },
+    {
+      "cluster_id": 11,
+      "centroid": {
+        "lat": 20.799349,
+        "lng": 82.539497
+      },
+      "bounds": {
+        "min_lat": 20.704372,
+        "max_lat": 20.882103,
+        "min_lng": 82.432113,
+        "max_lng": 82.625382
+      },
+      "radius_km": 12.15,
+      "incident_count": 16,
+      "avg_severity": 4.0,
+      "intensity": 32,
+      "dominant_crime_type": "Mugging",
+      "crime_type_distribution": {
+        "Mugging": 8,
+        "Robbery": 4,
+        "Assault": 4
+      },
+      "risk_level": "Medium"
+    }
+  ]
+}

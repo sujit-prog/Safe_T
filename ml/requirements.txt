@@ -1,0 +1,32 @@
+# SafeT ML Pipeline Dependencies
+# Install: pip install -r requirements.txt
+
+# Core ML
+scikit-learn>=1.3.0
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Model persistence
+joblib>=1.3.0
+
+# Explainability
+shap>=0.43.0
+
+# Database access
+psycopg2-binary>=2.9.0
+sqlalchemy>=2.0.0
+
+# API server
+fastapi>=0.104.0
+uvicorn>=0.24.0
+pydantic>=2.0.0
+
+# Optional: XGBoost
+xgboost>=2.0.0
+
+# Testing
+pytest>=7.4.0
+
+# Visualization (for evaluation reports)
+matplotlib>=3.7.0
+seaborn>=0.12.0

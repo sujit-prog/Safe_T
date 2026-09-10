@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import {
-  ArrowLeft, Shield, TrendingUp, ChevronRight, Activity, AlertTriangle, Users, Clock, CheckCircle2
+  ArrowLeft, Shield, TrendingUp, ChevronRight, Activity, AlertTriangle, Users, Clock, CheckCircle2, BrainCircuit, Sparkles, Map, Target, Radar, Route
 } from "lucide-react";
 
 function RiskSimulator() {
@@ -118,8 +118,10 @@ export default function RiskModelPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
-          <p className="text-sm font-semibold tracking-wider text-emerald-600 uppercase">100% Genuine Multi-Factor Methodology</p>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">The 4-Pillar Safety Model</h1>
+          <p className="text-sm font-semibold tracking-wider text-purple-600 uppercase flex items-center gap-2">
+            <BrainCircuit className="w-4 h-4" /> AI-Powered Prediction Pipeline
+          </p>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Machine Learning Risk Model</h1>
         </div>
         <Link
           href="/dashboard"
@@ -130,7 +132,88 @@ export default function RiskModelPage() {
       </div>
 
       <p className="text-gray-500 text-base max-w-3xl leading-relaxed">
-        Crime statistics alone don't determine how safe a street truly feels. SAfe_T calculates your safety score using a <strong>Multi-Factor 4-Pillar Model</strong> that prioritizes historical crime, traffic accident density, urban crowdedness, and the time of day. 
+        SAfe_T has been upgraded with a state-of-the-art <strong>Machine Learning Pipeline</strong>. We moved beyond static formulas to a dynamic, predictive model trained on thousands of geospatial, temporal, and environmental data points.
+      </p>
+
+      {/* ML Pipeline Card */}
+      <div className="bg-gray-900 rounded-2xl p-8 border border-gray-800 shadow-xl relative overflow-hidden mb-8">
+        <div className="absolute -top-32 -right-32 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2.5 bg-gray-800 rounded-lg border border-gray-700">
+              <Sparkles className="w-5 h-5 text-purple-400" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white">1. The ML Architecture</h2>
+              <p className="text-gray-400 text-sm">XGBoost Classifier + SHAP Explainability</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+            <div className="bg-gray-800/50 rounded-xl p-5 border border-gray-700">
+              <h3 className="text-white font-bold mb-2 flex items-center gap-2"><Activity className="w-4 h-4 text-blue-400"/> Feature Engineering</h3>
+              <p className="text-gray-400 leading-relaxed">
+                The model processes 17 distinct features for any location, including 500m/2km crime densities, road safety metrics, local crowdedness, distance to police stations, and time-of-day encodings.
+              </p>
+            </div>
+            <div className="bg-gray-800/50 rounded-xl p-5 border border-gray-700">
+              <h3 className="text-white font-bold mb-2 flex items-center gap-2"><BrainCircuit className="w-4 h-4 text-purple-400"/> Risk Prediction</h3>
+              <p className="text-gray-400 leading-relaxed">
+                An advanced XGBoost ensemble model evaluates the non-linear relationships between all features to predict the precise probability of high-risk incidents occurring.
+              </p>
+            </div>
+            <div className="bg-gray-800/50 rounded-xl p-5 border border-gray-700">
+              <h3 className="text-white font-bold mb-2 flex items-center gap-2"><Target className="w-4 h-4 text-emerald-400"/> SHAP Explanations</h3>
+              <p className="text-gray-400 leading-relaxed">
+                AI shouldn't be a black box. We use TreeSHAP to calculate exactly which factors increased or decreased the risk for your specific location in real-time.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Advanced Capabilities Card */}
+      <div className="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm relative overflow-hidden mb-8">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2.5 bg-indigo-50 rounded-lg text-indigo-600">
+            <Radar className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">2. Geospatial & Route Analytics</h2>
+            <p className="text-gray-500 text-sm">Hotspots, Anomalies, and Safe Routing</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Routing */}
+          <div className="border border-gray-100 rounded-xl p-5 bg-gray-50">
+            <h3 className="text-gray-900 font-bold mb-2 flex items-center gap-2"><Route className="w-4 h-4 text-indigo-500"/> OSRM + ML Routing</h3>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              When navigating between two points, the app requests routes from OSRM. We divide each route into geographic segments and pass them through our ML pipeline to calculate the overall safest, fastest, and balanced paths.
+            </p>
+          </div>
+          {/* DBSCAN */}
+          <div className="border border-gray-100 rounded-xl p-5 bg-gray-50">
+            <h3 className="text-gray-900 font-bold mb-2 flex items-center gap-2"><Map className="w-4 h-4 text-rose-500"/> DBSCAN Hotspots</h3>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              We mathematically identify high-density crime clusters using Density-Based Spatial Clustering of Applications with Noise (DBSCAN). This identifies distinct regional "hotspots" rather than just isolated incidents.
+            </p>
+          </div>
+          {/* Isolation Forest */}
+          <div className="border border-gray-100 rounded-xl p-5 bg-gray-50">
+            <h3 className="text-gray-900 font-bold mb-2 flex items-center gap-2"><Activity className="w-4 h-4 text-amber-500"/> Anomaly Detection</h3>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Using Isolation Forest algorithms, the system can monitor time-series data for sudden, unusual spikes in crime or accidents (e.g. going from 2 incidents/week to 15) to alert users proactively.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 mb-2 pt-4">
+        <h2 className="text-xl font-bold text-gray-900">3. The 4-Pillar Fallback System</h2>
+      </div>
+      <p className="text-gray-500 text-sm max-w-3xl leading-relaxed mb-6">
+        If the ML prediction service is temporarily unavailable, SAfe_T automatically falls back to our foundational 4-pillar deterministic formula.
       </p>
 
       {/* The 4 Pillars Grid */}
@@ -201,29 +284,28 @@ export default function RiskModelPage() {
       </div>
 
       {/* Core Formula Card */}
-      <div className="bg-gray-900 rounded-2xl p-8 border border-gray-800 shadow-xl relative overflow-hidden">
-        <div className="absolute -top-32 -right-32 w-80 h-80 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="bg-gray-50 rounded-2xl p-8 border border-gray-200 shadow-sm relative overflow-hidden">
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-6">
-            <div className="p-2.5 bg-gray-800 rounded-lg border border-gray-700">
-              <Activity className="w-5 h-5 text-emerald-400" />
+            <div className="p-2.5 bg-white rounded-lg border border-gray-200 shadow-sm">
+              <Activity className="w-5 h-5 text-gray-700" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">The Final Calculation</h2>
-              <p className="text-gray-400 text-sm">How the pillars combine into one score</p>
+              <h2 className="text-xl font-bold text-gray-900">Fallback Calculation</h2>
+              <p className="text-gray-500 text-sm">Deterministic formula used when ML is unavailable</p>
             </div>
           </div>
 
-          <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700 font-mono text-sm space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300">
+          <div className="bg-white rounded-xl p-6 border border-gray-200 font-mono text-sm space-y-4 shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-600">
               <p>weightedCrime = CrimeScore × 0.40</p>
               <p>weightedAccident = AccidentScore × 0.20</p>
               <p>weightedCrowd = CrowdScore × 0.25</p>
               <p>weightedTime = TimeScore × 0.15</p>
             </div>
-            <div className="border-t border-gray-700 pt-4 mt-4">
-              <p className="text-white font-bold text-base bg-gray-800 p-4 border border-gray-600 rounded-lg shadow-inner inline-block w-full text-center md:text-left md:w-auto">
-                Overall Safety = <span className="text-emerald-400">weightedCrime + weightedAccident + weightedCrowd + weightedTime</span>
+            <div className="border-t border-gray-200 pt-4 mt-4">
+              <p className="text-gray-900 font-bold text-base bg-gray-50 p-4 border border-gray-200 rounded-lg shadow-inner inline-block w-full text-center md:text-left md:w-auto">
+                Overall Safety = <span className="text-emerald-600">weightedCrime + weightedAccident + weightedCrowd + weightedTime</span>
               </p>
             </div>
           </div>
@@ -232,13 +314,13 @@ export default function RiskModelPage() {
 
       <RiskSimulator />
 
-      {/* Guarantee Banner */}
-      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 flex items-start gap-4 shadow-sm">
-        <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5" />
+      {/* ML Transparency Banner */}
+      <div className="bg-purple-50 border border-purple-200 rounded-2xl p-6 flex items-start gap-4 shadow-sm mt-8">
+        <CheckCircle2 className="w-6 h-6 text-purple-600 shrink-0 mt-0.5" />
         <div>
-          <h3 className="text-emerald-900 font-bold text-lg">No AI Guesswork</h3>
-          <p className="text-emerald-800 text-sm mt-1 leading-relaxed">
-            We have stripped all arbitrary AI algorithms from this platform. Every pillar above relies entirely on hard data (NCRB, MoRTH, OpenStreetMap).
+          <h3 className="text-purple-900 font-bold text-lg">Data Transparency</h3>
+          <p className="text-purple-800 text-sm mt-1 leading-relaxed">
+            Our ML model is trained on a synthesized dataset derived directly from official 2022 NCRB and MoRTH state statistics, mapped to geospatial grids across Odisha. This ensures predictions remain grounded in verified regional safety trends while providing localized, time-aware risk assessments.
           </p>
         </div>
       </div>
